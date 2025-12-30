@@ -1,0 +1,29 @@
+================================================
+  HYP HEMSIRE UYGULAMASI
+================================================
+
+KURULUM
+-------
+1. HYP_Hemsire.exe dosyasini masaustune kopyalayin
+2. Cift tiklayarak calistirin
+3. Ilk kullanimda "Ayarlar"a tiklayin
+4. Klasor yolunu girin:
+
+   \\Laptop-ohjtc5g3\ortak asm\Dr Osman
+
+5. Tamam
+
+
+KULLANIM
+--------
+1. Exe'yi calistirin
+2. Hasta TC'sini girin
+3. GONDER butonuna basin
+4. "Gonderildi!" mesajini gorun
+5. Doktor tarafinda otomasyon otomatik baslar
+
+
+NOT: Doktor bilgisayarinda HYP uygulamasi
+acik olmalidir (minimize olabilir).
+
+================================================

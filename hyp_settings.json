@@ -1,0 +1,79 @@
+{
+    "pin_code": "NjcyODUw",
+    "remember_pin": true,
+    "last_login": null,
+    "theme": "dark",
+    "window_size": "1200x800",
+    "monthly_targets": {
+        "HT_TARAMA": 95,
+        "HT_IZLEM": 49,
+        "DIY_TARAMA": 18,
+        "DIY_IZLEM": 33,
+        "OBE_TARAMA": 114,
+        "OBE_IZLEM": 18,
+        "KVR_TARAMA": 18,
+        "KVR_IZLEM": 16,
+        "YAS_IZLEM": 11
+    },
+    "current_counts": {
+        "HT_TARAMA": 52,
+        "HT_IZLEM": 26,
+        "KVR_TARAMA": 5,
+        "KVR_IZLEM": 26,
+        "DIY_TARAMA": 19,
+        "DIY_IZLEM": 18,
+        "OBE_TARAMA": 72,
+        "OBE_IZLEM": 18,
+        "YAS_IZLEM": 10
+    },
+    "deferred_counts": {
+        "HT_TARAMA": 0,
+        "HT_IZLEM": 0,
+        "DIY_TARAMA": 0,
+        "DIY_IZLEM": 0,
+        "OBE_TARAMA": 0,
+        "OBE_IZLEM": 0,
+        "KVR_TARAMA": 0,
+        "KVR_IZLEM": 0,
+        "YAS_IZLEM": 0
+    },
+    "monthly_history": {
+        "2025-12": {
+            "targets": {
+                "HT_TARAMA": 95,
+                "HT_IZLEM": 49,
+                "DIY_TARAMA": 18,
+                "DIY_IZLEM": 33,
+                "OBE_TARAMA": 114,
+                "OBE_IZLEM": 18,
+                "KVR_TARAMA": 18,
+                "KVR_IZLEM": 16,
+                "YAS_IZLEM": 11
+            },
+            "current_counts": {
+                "HT_TARAMA": 52,
+                "HT_IZLEM": 26,
+                "KVR_TARAMA": 5,
+                "KVR_IZLEM": 26,
+                "DIY_TARAMA": 19,
+                "DIY_IZLEM": 18,
+                "OBE_TARAMA": 72,
+                "OBE_IZLEM": 18,
+                "YAS_IZLEM": 10
+            },
+            "deferred_counts": {
+                "HT_TARAMA": 0,
+                "HT_IZLEM": 0,
+                "DIY_TARAMA": 0,
+                "DIY_IZLEM": 0,
+                "OBE_TARAMA": 0,
+                "OBE_IZLEM": 0,
+                "KVR_TARAMA": 0,
+                "KVR_IZLEM": 0,
+                "YAS_IZLEM": 0
+            },
+            "last_updated": "2025-12-30 18:19"
+        }
+    },
+    "auto_delete_excess_kvr": true
+}

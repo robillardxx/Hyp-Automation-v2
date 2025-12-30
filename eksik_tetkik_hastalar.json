@@ -1,0 +1,15 @@
+[
+  {
+    "hasta": "SAYNUR TORUN",
+    "tc": "56*******32",
+    "hyp_tipi": "HT_IZLEM",
+    "neden": "Dis lab girilemedi: HDL, Kolesterol, non-HDL",
+    "eksik_tetkikler": [
+      "HDL",
+      "Kolesterol",
+      "non-HDL"
+    ],
+    "sms_gerekli": false,
+    "zaman": "10:34:23"
+  }
+]
