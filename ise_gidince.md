@@ -1,46 +1,46 @@
-# HYP Otomasyon - Claude Code Devam Promptu
+# HYP Otomasyon - İş Yerinde Devam Promptu
 
-Asagidaki promptu Claude Code'a yapistir:
+Bu promptu iş yerindeki bilgisayarda Claude Code'a yapıştır:
 
 ---
 
 ```
-C:\Users\osman\Desktop\hyp_yeni klasorundeki HYP Otomasyon projesinde calismaya devam edecegiz.
+HYP Otomasyon projesinde kaldığımız yerden devam edeceğiz.
 
-Oncelikle su dosyalari oku:
-1. CHANGELOG.md - son degisiklikleri gor
-2. hyp_settings.json - mevcut hedef ve yapilan sayilarini gor
-3. ise_gidince.md - bekleyen isleri gor
+ADIM 1: GitHub'dan güncel versiyonu indir
+- Repo: https://github.com/robillardxx/Hyp-Automation
+- Masaüstündeki eski hyp_yeni klasörünü sil (varsa)
+- Repoyu masaüstüne klonla ve klasör adını hyp_yeni yap
 
-Proje: Turkiye Saglik Bakanligi HYP sistemi icin Selenium otomasyon + CustomTkinter GUI uygulamasi.
+ADIM 2: Dosyaları oku
+- CHANGELOG.md - son değişiklikleri gör
+- hyp_settings.json - hedef ve yapılan sayıları gör
+- ise_gidince.md - bekleyen işleri gör
 
-Ana dosyalar:
-- hyp_automation.py (Selenium motoru, ~300KB)
-- gui_app.py (GUI, ~200KB)
+ADIM 3: Özet ver ve ne yapmak istediğimi sor
 
+---
+
+Proje: Türkiye Sağlık Bakanlığı HYP sistemi için Selenium otomasyon uygulaması
 Mevcut versiyon: v6.9.6
 
-Son seansda yaptiklarimiz:
-- Coklu tarih sorgulamasi 30x hizlandirildi (bellekte filtreleme)
-- Turkce karakter sorunu cozuldu (normalize_tr)
-- KVR protokol takilmasi cozuldu (same-page detection)
-- DEVAM EDIYOR durumu algilama eklendi
-- GUI donma onlendi (150ms refresh timer)
+Son seansta yaptıklarımız (evde):
+- Çoklu tarih sorgulaması 30x hızlandırıldı
+- Türkçe karakter sorunu çözüldü (normalize_tr)
+- KVR protokol takılması çözüldü
+- DEVAM EDİYOR durumu algılama eklendi
+- GUI donma önlendi
 
-Bekleyen isler:
-1. OBE_IZLEM'de Edmonton evrelemesi kontrolu (HYP v2.7.9)
-2. WebDriverWait optimizasyonu (time.sleep yerine)
-3. Yeni HYP modulleri (Koroner, Inme, KOAH, Astim, Bobrek)
-
-Dosyalari okuduktan sonra bana ozet ver ve ne yapmak istedigimi sor.
+Bekleyen işler:
+1. OBE_IZLEM'de Edmonton evrelemesi kontrolü
+2. WebDriverWait optimizasyonu
+3. Yeni HYP modülleri (Koroner, İnme, KOAH, Astım, Böbrek)
 ```
 
 ---
 
-## Notlar
+## İş Yeri Bilgileri
 
 - **GitHub Repo:** https://github.com/robillardxx/Hyp-Automation
-- Chrome profil yolu: `C:\Users\osman\AppData\Local\Google\Chrome\User Data\hyp_profile`
-- Paylasimli klasor: `Z:\Dr Osman`
-- Hemsire uygulamasi: `hemsire_app/` klasoru
+- Chrome profil: `C:\Users\osman\AppData\Local\Google\Chrome\User Data\hyp_profile`
 - Test: `python gui_app.py`
