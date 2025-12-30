@@ -1,5 +1,16 @@
 # HYP Otomasyon - Guncelleme Gunlugu
 
+## [v6.9.5] - 2025-12-30
+
+### Yeni Ozellikler
+
+#### Kendi Verilerimle Hesapla Butonu
+- **Yeni Buton:** Hesaplama sekmesinde "📊 Kendi Verilerimle Güncelle" butonu
+- **Otomatik Doldurma:** Uygulamadaki hedef ve yapilan degerleri otomatik doldurur
+- **Tek Tikla Hesaplama:** Verileri doldurup hemen HESAPLA butonuna basabilirsiniz
+
+---
+
 ## [v6.9.4] - 2025-12-30
 
 ### Yeni Ozellikler

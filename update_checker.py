@@ -11,10 +11,10 @@ import threading
 from typing import Optional, Callable, Dict, Any
 
 # Mevcut versiyon
-CURRENT_VERSION = "6.9.4"
+CURRENT_VERSION = "6.9.5"
 
 # GitHub raw URL (private repo için token gerekebilir, public yapılırsa bu çalışır)
-VERSION_URL = "https://raw.githubusercontent.com/Rodel-Ituralde/Hyp-Automation/main/version.json"
+VERSION_URL = "https://raw.githubusercontent.com/robillardxx/Hyp-Automation/main/version.json"
 
 
 def parse_version(version_str: str) -> tuple:
