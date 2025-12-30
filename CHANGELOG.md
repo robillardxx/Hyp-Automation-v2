@@ -1,5 +1,44 @@
 # HYP Otomasyon - Guncelleme Gunlugu
 
+## [v6.9.6] - 2025-12-30
+
+### Performans Iyilestirmeleri
+
+#### Super Hizli Coklu Tarih Sorgulama
+- **Bellek Tabanli Filtreleme:** 100 hasta satirini tek seferde okur, bellekte tarih filtreleme yapar
+- **Tarih Basi Sorgu YOK:** Her tarih icin ayri sayfa yuklemesi yerine tek okuma
+- **Performans Kazanci:** ~100 saniyeden ~3 saniyeye dustu (30x hizlanma)
+
+#### GUI Donma Onleme
+- **Periyodik Guncelleme:** 150ms arayla GUI refresh timer
+- **Arka Plan Islemleri:** Otomasyon calisirken GUI donmuyor
+
+### Hata Duzeltmeleri
+
+#### Turkce Karakter Arama Sorunu
+- **normalize_tr() Fonksiyonu:** Hasta isimlerinde Turkce karakter uyumsuzlugu giderildi
+- **Ornek:** "MECBURE CAKMAK" artik "MECBURE CAKMAK" ile eslesiyor
+
+#### KVR Protokol Takilma Sorunu
+- **Ayni Sayfa Tespiti:** Ayni URL'de 4+ kez kalma durumu algilaniyor
+- **Otomatik Iptal:** Protokol takildiginda HYP iptal edilip sonrakine geciyor
+
+#### DEVAM EDIYOR Durumu
+- **Baslat Butonu Eksikligi:** "Baslat butonu bulunamadi" hatasi duzeltildi
+- **Protokol Algilama:** Sayfa zaten protokol icindeyse devam ediliyor
+
+### HYP Bakanlik Sistemi Guncellemeleri (v2.7.0 - v2.7.14)
+
+#### Bizi Etkileyen Degisiklikler
+- **v2.7.10:** Devam eden islemler durumunda yeni islemlere baslayamama kurallari
+- **v2.7.9:** Edmonton evrelemesi kontrolu (Obezite izlem) - izlenmeli
+- **v2.7.8:** Hasta popup validasyonu kaldirildi - test edilmeli
+
+#### Gelecek Potansiyeli (v2.7.0)
+- Koroner Arter, Inme, Kronik Bobrek, KOAH, Astim modulleri
+
+---
+
 ## [v6.9.5] - 2025-12-30
 
 ### Yeni Ozellikler

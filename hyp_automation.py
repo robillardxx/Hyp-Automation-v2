@@ -144,8 +144,14 @@ class HYPAutomation:
         # İptal edilen HYP'ler (eksik tetkik vb. nedenlerle)
         self.cancelled_hyps = []
 
+        # Başarısız HYP'ler (hata nedeniyle tamamlanamayan)
+        self.failed_hyps = []
+
         # Mevcut işlenen HYP tipi
         self._current_hyp_type = None
+
+        # Çoklu tarih desteği
+        self.selected_dates = None  # Liste olarak birden fazla tarih
 
         # SMS onayı kapalı hastalar (bu hastalar her zaman atlanır)
         self.sms_kapali_hastalar = self._load_sms_kapali_hastalar()
@@ -766,7 +772,7 @@ class HYPAutomation:
                 self.log("⚠️ Takip İşlemi İstatistikleri linki bulunamadı!", "WARNING")
                 return counts
 
-            time.sleep(3)
+            time.sleep(1.5)  # OPTIMIZE: 3 -> 1.5
 
             # 3. Sayfadaki body text'i parse et
             # Format: HYP_ADI\nSAYI\nHYP_ADI\nSAYI...
@@ -870,16 +876,23 @@ class HYPAutomation:
             
             # Normal başlatma
             self.log("🔧 Chrome başlatılıyor...")
-            
+
             options = Options()
             options.add_argument('--start-maximized')
             options.add_argument('--disable-blink-features=AutomationControlled')
 
             # ============================================================
-            # E-IMZA YEREL AĞ ERİŞİMİ - "İzin ver" popup'ını engelle
-            # Bu popup: "ogn.saglik.gov.tr şunu yapmak istiyor:
-            # Yerel ağınızdaki cihazları arayıp bunlara bağlanma"
-            # e-İmza okuyucu için gerekli - otomatik izin ver
+            # KALICI CHROME PROFİLİ - İzinler hatırlanır
+            # İlk seferde "İzin ver" dedikten sonra Chrome bunu hatırlar
+            # ============================================================
+            import os
+            user_data_dir = os.path.join(os.path.expanduser("~"), ".hyp_chrome_profile")
+            if not os.path.exists(user_data_dir):
+                os.makedirs(user_data_dir)
+            options.add_argument(f'--user-data-dir={user_data_dir}')
+
+            # ============================================================
+            # E-IMZA YEREL AĞ ERİŞİMİ - ek güvenlik ayarları
             # ============================================================
             options.add_argument('--disable-features=PrivateNetworkAccessForNavigations,PrivateNetworkAccessForWorkers,PrivateNetworkAccessNonSecureContextsAllowed')
 
@@ -1233,7 +1246,7 @@ class HYPAutomation:
                 pass
 
             self.log("PIN ekranı bekleniyor...")
-            time.sleep(3)
+            time.sleep(1.5)  # OPTIMIZE: 3 -> 1.5
 
             # PIN GİRİŞİ - OTOMATİK veya MANUEL
             # auto_pin=True VE PIN kaydedilmişse otomatik gir
@@ -1304,13 +1317,13 @@ class HYPAutomation:
         """Fizik muayene kayıtlarından hasta listesi al"""
         try:
             self.log("Fizik Muayene sayfasına gidiliyor...")
-            
+
             # Menüye git
             if not self.click_element("//a[contains(., 'Fizik Muayene')]", timeout=5):
                 self.log("Fizik Muayene menüsü bulunamadı!", "ERROR")
                 return []
-            
-            time.sleep(3)
+
+            time.sleep(2)  # OPTIMIZE: 3 -> 2
             self.check_error_page()
 
             # Sayfa boyutunu 100'e ayarla (varsayılan 10)
@@ -1320,7 +1333,7 @@ class HYPAutomation:
             date = target_date or datetime.now()
             date_str = date.strftime("%d.%m.%Y")
             self.log(f"Tarih: {date_str}")
-            
+
             try:
                 inputs = self.driver.find_elements(By.CSS_SELECTOR, "input.p-inputtext")
                 if len(inputs) >= 2:
@@ -1337,7 +1350,7 @@ class HYPAutomation:
             # Hastaları topla
             patients = []
             rows = self.driver.find_elements(By.CSS_SELECTOR, ".list-item.ng-star-inserted")
-            
+
             for row in rows:
                 try:
                     text = row.text
@@ -1350,12 +1363,88 @@ class HYPAutomation:
                             })
                 except:
                     continue
-            
+
             self.log(f"Bulunan hasta: {len(patients)}")
             return patients
-            
+
         except Exception as e:
             self.log(f"Hasta listesi hatası: {e}", "ERROR")
+            return []
+
+    def get_patients_for_dates(self, dates: List[datetime]) -> List[Dict]:
+        """
+        Birden fazla tarih için hastaları SÜPER HIZLI al.
+        Sayfayı 1 kere açar, 100 satır alır, bellekte filtreler.
+        Tarih sorgusu YAPMAZ - tüm listeyi okur ve seçilen tarihlere göre filtreler.
+        """
+        if not dates:
+            return []
+
+        all_patients = []
+        existing_names = set()
+
+        # Seçilen tarihleri string formatına çevir
+        date_strings = set(d.strftime("%d.%m.%Y") for d in dates)
+        self.log(f"📅 {len(dates)} tarih için hastalar alınıyor (hızlı mod)...")
+
+        try:
+            self.log("Fizik Muayene sayfasına gidiliyor...")
+
+            # Menüye git - SADECE 1 KEZ
+            if not self.click_element("//a[contains(., 'Fizik Muayene')]", timeout=5):
+                self.log("Fizik Muayene menüsü bulunamadı!", "ERROR")
+                return []
+
+            time.sleep(2)
+            self.check_error_page()
+
+            # Sayfa boyutunu 100'e ayarla
+            self.set_page_size(100)
+            time.sleep(0.5)
+
+            # TÜM satırları oku - tarih filtresi YAPMADAN
+            rows = self.driver.find_elements(By.CSS_SELECTOR, ".list-item.ng-star-inserted")
+            self.log(f"   📋 Sayfada {len(rows)} satır bulundu")
+
+            # Tarih bazlı sayaçlar
+            date_counts = {d: 0 for d in date_strings}
+
+            for row in rows:
+                try:
+                    text = row.text
+                    parts = text.split('\n')
+                    if not parts or "Adı" in parts[0]:
+                        continue
+
+                    name = parts[0].strip()
+                    if name in existing_names:
+                        continue
+
+                    # Bu satırın tarihi seçilen tarihlerden biri mi?
+                    for date_str in date_strings:
+                        if date_str in text:
+                            all_patients.append({
+                                "ad_soyad": name,
+                                "tarih": date_str
+                            })
+                            existing_names.add(name)
+                            date_counts[date_str] += 1
+                            break  # Bir tarihle eşleşti, sonrakine geç
+
+                except:
+                    continue
+
+            # Sonuçları logla
+            for date_str in sorted(date_strings):
+                count = date_counts[date_str]
+                if count > 0:
+                    self.log(f"   📆 {date_str}: ✅ {count} hasta")
+
+            self.log(f"📊 Toplam: {len(all_patients)} benzersiz hasta")
+            return all_patients
+
+        except Exception as e:
+            self.log(f"Çoklu tarih hasta listesi hatası: {e}", "ERROR")
             return []
 
     # ============================================================
@@ -1619,7 +1708,8 @@ class HYPAutomation:
 
             # 3. Hasta İsmine Tıkla
             name_clicked = False
-            patient_name_upper = patient_name.upper().strip()
+            # Türkçe karakter normalizasyonu ile karşılaştır
+            patient_name_normalized = normalize_tr(patient_name)
 
             # Arama sonuçlarını bekle
             list_items = []
@@ -1631,8 +1721,8 @@ class HYPAutomation:
 
             for item in list_items:
                 try:
-                    item_text = item.text.upper()
-                    if patient_name_upper in item_text:
+                    item_text_normalized = normalize_tr(item.text)
+                    if patient_name_normalized in item_text_normalized:
                         try:
                             name_el = item.find_element(By.CSS_SELECTOR, ".name")
                             self.js_click(name_el)
@@ -1759,6 +1849,13 @@ class HYPAutomation:
                     )
                 else:
                     self.session_stats["basarisiz"] += 1
+                    # Başarısız HYP'yi kaydet
+                    self.failed_hyps.append({
+                        "hasta": self.current_patient_name or "Bilinmeyen",
+                        "hyp_tip": card["hyp_tip"],
+                        "hyp_ad": card.get("baslik", card["hyp_tip"]),
+                        "neden": "İşlem tamamlanamadı"
+                    })
                     # Cache'e kaydet (iptal/başarısız)
                     self.mark_hyp_as_processed(
                         self.current_patient_tc,
@@ -1909,6 +2006,30 @@ class HYPAutomation:
                     self.js_click(btn)
                     time.sleep(0.2)
                     return True
+
+            # Buton bulunamadı - DEVAM EDİYOR durumu kontrol et
+            page_text = self.get_page_text()
+            if "DEVAM EDİYOR" in page_text or "DEVAM EDIYOR" in page_text:
+                self.log("   DEVAM EDİYOR tespit edildi - protokol zaten başlamış", "DEBUG")
+                # Sayfa zaten protokol içinde olabilir - doğrudan devam et
+                current_url = self.driver.current_url.lower()
+                if any(x in current_url for x in ['/anamnez', '/tetkik', '/ilac', '/tani', '/hedef', '/ozet', '/yasam']):
+                    self.log("   Protokol sayfasındayız, devam ediliyor...", "DEBUG")
+                    return True
+                # Görüntüle butonuna tıklamayı dene
+                for btn in buttons:
+                    txt = btn.text.strip()
+                    if 'Görüntüle' in txt:
+                        self.log(f"   Görüntüle butonu deneniyor: {txt[:40]}", "DEBUG")
+                        self.js_click(btn)
+                        time.sleep(0.5)
+                        # Tekrar butonları kontrol et
+                        new_buttons = self.driver.find_elements(By.TAG_NAME, 'button')
+                        for new_btn in new_buttons:
+                            new_txt = new_btn.text.strip()
+                            if 'Devam Et' in new_txt or 'Başlat' in new_txt:
+                                self.js_click(new_btn)
+                                return True
             return False
         finally:
             self.driver.implicitly_wait(original_wait)
@@ -2909,7 +3030,11 @@ class HYPAutomation:
         self.log(">> KVR protokolü başladı")
         # NOT: _start_process() artik _process_single_card'da cagiriliyor!
 
-        for step in range(1, 15):  # Maksimum 15 adım
+        last_url = None
+        same_url_count = 0
+        MAX_SAME_URL = 4  # Aynı URL'de maksimum kalma sayısı
+
+        for step in range(1, 20):  # Maksimum 20 adım (artırıldı)
             self.keep_alive()
             self.check_error_page()
             self._close_dialogs()
@@ -2918,6 +3043,17 @@ class HYPAutomation:
 
             current_url = self.driver.current_url
             page_text = self.get_page_text()
+
+            # Aynı sayfada takılı kalma kontrolü
+            if current_url == last_url:
+                same_url_count += 1
+                if same_url_count >= MAX_SAME_URL:
+                    self.log(f"   !!! Aynı sayfada {MAX_SAME_URL} kez takıldı - HYP iptal ediliyor!", "ERROR")
+                    self._cancel_current_hyp(reason="KVR protokolünde sayfa takılması")
+                    return False
+            else:
+                same_url_count = 0
+                last_url = current_url
 
             # =====================================================
             # OZET SAYFASI - SONLANDIR
@@ -3003,7 +3139,8 @@ class HYPAutomation:
                     self.log("İlerle veya Sonlandır butonu bulunamadı!", "WARNING")
                     return False
 
-        self.log("Maksimum adım sayısına ulaşıldı!", "WARNING")
+        self.log("Maksimum adım sayısına ulaşıldı - HYP iptal ediliyor!", "WARNING")
+        self._cancel_current_hyp(reason="KVR protokolünde maksimum adım aşıldı")
         return False
 
     # ============================================================
@@ -6385,6 +6522,13 @@ class HYPAutomation:
                     self.check_and_handle_kvr_overflow(self.current_patient_name)
             else:
                 self.session_stats["basarisiz"] += 1
+                # Başarısız HYP'yi kaydet
+                self.failed_hyps.append({
+                    "hasta": self.current_patient_name or "Bilinmeyen",
+                    "hyp_tip": hyp_tip,
+                    "hyp_ad": card.get("baslik", hyp_tip),
+                    "neden": "Protokol tamamlanamadı"
+                })
 
             time.sleep(1)
 
@@ -6543,18 +6687,26 @@ class HYPAutomation:
             self.fetch_completed_counts()
             self.print_target_status()
 
-            # Hasta listesini al
-            patients = self.get_todays_patients(self.selected_date)
-            
-            if not patients:
-                self.log("Bugün işlenecek hasta bulunamadı.", "WARNING")
-                
-                if self.date_picker_callback:
-                    new_date = self.date_picker_callback()
-                    if new_date:
-                        self.selected_date = new_date
-                        patients = self.get_todays_patients(new_date)
-            
+            # Hasta listesini al - ÇOKLU TARİH DESTEĞİ (OPTİMİZE)
+            patients = []
+
+            # Eğer birden fazla tarih seçildiyse HIZLI fonksiyonu kullan
+            if self.selected_dates and len(self.selected_dates) > 0:
+                self.log(f"📅 {len(self.selected_dates)} tarih için hastalar alınıyor (hızlı mod)...")
+                patients = self.get_patients_for_dates(self.selected_dates)
+            else:
+                # Tek tarih veya tarihsiz (bugün)
+                patients = self.get_todays_patients(self.selected_date)
+
+                if not patients:
+                    self.log("Bugün işlenecek hasta bulunamadı.", "WARNING")
+
+                    if self.date_picker_callback:
+                        new_date = self.date_picker_callback()
+                        if new_date:
+                            self.selected_date = new_date
+                            patients = self.get_todays_patients(new_date)
+
             if not patients:
                 self.log("Hasta bulunamadı!", "ERROR")
                 return
@@ -6626,6 +6778,10 @@ class HYPAutomation:
     def get_cancelled_hyps(self) -> list:
         """İptal edilen HYP'leri döndür (eksik tetkik vb.)"""
         return self.cancelled_hyps.copy()
+
+    def get_failed_hyps(self) -> list:
+        """Başarısız HYP'leri döndür (protokol hatası vb.)"""
+        return self.failed_hyps.copy()
 
     def print_cancelled_hyps(self):
         """

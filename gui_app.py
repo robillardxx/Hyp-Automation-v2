@@ -270,6 +270,13 @@ class DatePickerDialog(ctk.CTkToplevel):
         ).pack(side="left", padx=5, pady=10)
 
         ctk.CTkButton(
+            quick_frame, text="Hafta Ici",
+            command=self.select_weekdays_only,
+            width=85, height=30, font=ctk.CTkFont(size=11),
+            fg_color="#e67e22", hover_color="#d35400"
+        ).pack(side="left", padx=5, pady=10)
+
+        ctk.CTkButton(
             quick_frame, text="Tumunu Sec",
             command=self.select_all,
             width=90, height=30, font=ctk.CTkFont(size=11),
@@ -382,6 +389,17 @@ class DatePickerDialog(ctk.CTkToplevel):
     def clear_selection(self):
         for var in self.date_checkboxes.values():
             var.set(False)
+        self.update_selection_count()
+
+    def select_weekdays_only(self):
+        """Son 1 haftanın sadece hafta içi günlerini seç (Cumartesi-Pazar hariç)"""
+        self.clear_selection()
+        today = datetime.now()
+        for i in range(1, 8):  # Son 7 gün
+            date = today - timedelta(days=i)
+            # Hafta sonu değilse seç (0=Pazartesi, 6=Pazar)
+            if date.weekday() < 5 and date in self.date_checkboxes:  # Pazartesi-Cuma
+                self.date_checkboxes[date].set(True)
         self.update_selection_count()
 
     def update_selection_count(self):
@@ -1178,6 +1196,21 @@ class HYPApp(ctk.CTk):
         )
         self.start_button.pack(side="left", padx=8)
         add_tooltip(self.start_button, "Otomasyonu başlat")
+
+        # GEÇMİŞ butonu - Geçmiş tarihlerden başlat
+        self.history_button = ctk.CTkButton(
+            self.button_container,
+            text="📅 GEÇMİŞ",
+            command=self.start_automation_with_history,
+            font=ctk.CTkFont(size=13, weight="bold"),
+            width=110,
+            height=42,
+            fg_color="#e67e22",
+            hover_color="#d35400",
+            corner_radius=10
+        )
+        self.history_button.pack(side="left", padx=8)
+        add_tooltip(self.history_button, "Geçmiş tarihlerden otomasyon başlat")
 
         # DURDUR butonu
         self.stop_button = ctk.CTkButton(
@@ -2086,11 +2119,34 @@ class HYPApp(ctk.CTk):
             self.log_message("❌ PIN girilmedi. Uygulama kapatılıyor...")
             self.after(2000, self.destroy)
     
-    def show_date_picker(self):
+    def show_date_picker(self, return_list=False):
         dialog = DatePickerDialog(self)
         self.wait_window(dialog)
-        return dialog.selected_date if not dialog.cancelled else None
-    
+        if dialog.cancelled:
+            return None
+        # Çoklu tarih döndür veya tek tarih
+        if return_list:
+            return dialog.selected_dates if dialog.selected_dates else None
+        return dialog.selected_date
+
+    def start_automation_with_history(self):
+        """Geçmiş tarih seçerek otomasyon başlat"""
+        if self.is_running:
+            return
+
+        # Tarih seçici aç - ÇOKLU TARİH al
+        selected_dates = self.show_date_picker(return_list=True)
+        if not selected_dates:
+            self.log_message("ℹ️ Tarih seçilmedi, otomasyon iptal edildi.")
+            return
+
+        # Seçilen TARİHLERİ sakla - start_automation içinde kullanılacak
+        self.pre_selected_dates = selected_dates
+        self.log_message(f"📅 {len(selected_dates)} tarih seçildi")
+
+        # Normal otomasyon başlat
+        self.start_automation()
+
     def open_settings(self):
         settings_window = SettingsWindow(self, self.settings_manager)
         self.wait_window(settings_window)
@@ -2712,6 +2768,7 @@ class HYPApp(ctk.CTk):
         # Otomasyon başlat
         self.is_running = True
         self.start_button.configure(state="disabled")
+        self.history_button.configure(state="disabled")
         self.stop_button.configure(state="normal")
 
         def run_tc_automation():
@@ -2846,6 +2903,7 @@ class HYPApp(ctk.CTk):
                 self.is_running = False
                 self.automation = None  # Referansı temizle
                 self.after(0, lambda: self.start_button.configure(state="normal"))
+                self.after(0, lambda: self.history_button.configure(state="normal"))
                 self.after(0, lambda: self.stop_button.configure(state="disabled"))
 
         self.automation_thread = threading.Thread(target=run_tc_automation, daemon=True)
@@ -3135,8 +3193,12 @@ class HYPApp(ctk.CTk):
 
         self.is_running = True
         self.start_button.configure(state="disabled")
+        self.history_button.configure(state="disabled")
         self.stop_button.configure(state="normal")
         self.progress.set(0)
+
+        # GUI güncelleme timer'ını başlat
+        self._start_gui_refresh_timer()
 
         self.log_message("=" * 50)
         self.log_message("🚀 OTOMASYON BAŞLATILIYOR...")
@@ -3165,6 +3227,14 @@ class HYPApp(ctk.CTk):
                     date_picker_callback=self.show_date_picker,
                     stats_callback=self.update_all_quota_cards
                 )
+
+                # Eğer GEÇMİŞ butonundan seçilmiş TARİHLER varsa ayarla
+                if hasattr(self, 'pre_selected_dates') and self.pre_selected_dates:
+                    self.automation.selected_dates = self.pre_selected_dates
+                    self.log_message(f"📅 Seçilen Tarihler: {len(self.pre_selected_dates)} gün")
+                    for d in self.pre_selected_dates:
+                        self.log_message(f"   - {d.strftime('%d.%m.%Y')}")
+                    self.pre_selected_dates = None  # Temizle
 
                 # Hedef yüzdesini ayarla
                 self.automation.target_percentage = self.target_percentage
@@ -3208,11 +3278,12 @@ class HYPApp(ctk.CTk):
                 self.progress.set(1.0)
                 self.log_message("🏁 OTOMASYON TAMAMLANDI!")
 
-                # Oturum özeti ve iptal edilen/atlanan HYP'leri popup ile göster
+                # Oturum özeti ve iptal edilen/atlanan/başarısız HYP'leri popup ile göster
                 cancelled = self.automation.get_cancelled_hyps()
                 skipped = self.automation.get_skipped_notifications() if hasattr(self.automation, 'get_skipped_notifications') else []
+                failed = self.automation.get_failed_hyps() if hasattr(self.automation, 'get_failed_hyps') else []
                 stats = self.automation.session_stats.copy() if hasattr(self.automation, 'session_stats') else {}
-                self.after(0, lambda: self.show_completion_popup(stats, cancelled, skipped))
+                self.after(0, lambda: self.show_completion_popup(stats, cancelled, skipped, failed))
 
             except Exception as e:
                 self.log_message(f"❌ HATA: {str(e)}")
@@ -3221,11 +3292,30 @@ class HYPApp(ctk.CTk):
             
             finally:
                 self.is_running = False
+                self.after(0, self._stop_gui_refresh_timer)
                 self.after(0, lambda: self.start_button.configure(state="normal"))
+                self.after(0, lambda: self.history_button.configure(state="normal"))
                 self.after(0, lambda: self.stop_button.configure(state="disabled"))
-        
+
         threading.Thread(target=run_thread, daemon=True).start()
-    
+
+    def _start_gui_refresh_timer(self):
+        """GUI'nin donmaması için periyodik güncelleme başlat"""
+        self._gui_refresh_id = None
+
+        def refresh():
+            if self.is_running:
+                self.update_idletasks()
+                self._gui_refresh_id = self.after(150, refresh)  # Her 150ms'de bir
+
+        refresh()
+
+    def _stop_gui_refresh_timer(self):
+        """GUI güncelleme timer'ını durdur"""
+        if hasattr(self, '_gui_refresh_id') and self._gui_refresh_id:
+            self.after_cancel(self._gui_refresh_id)
+            self._gui_refresh_id = None
+
     def stop_automation(self):
         if not self.is_running or not self.automation:
             return
@@ -3233,13 +3323,15 @@ class HYPApp(ctk.CTk):
         self.log_message("🛑 OTOMASYON DURDURULUYOR...")
         self.automation.stop()
         self.is_running = False
+        self._stop_gui_refresh_timer()
         self.start_button.configure(state="normal")
+        self.history_button.configure(state="normal")
         self.stop_button.configure(state="disabled")
 
-    def show_completion_popup(self, stats: dict, cancelled_list: list, skipped_list: list = None):
+    def show_completion_popup(self, stats: dict, cancelled_list: list, skipped_list: list = None, failed_list: list = None):
         """
         Otomasyon tamamlandığında özet popup göster.
-        Başarılı, başarısız, atlanan sayıları ve iptal edilen/atlanan HYP'leri gösterir.
+        Başarılı, başarısız, atlanan sayıları ve iptal edilen/atlanan/başarısız HYP'leri gösterir.
         """
         # Eksik tetkik kayitlarini dosyaya kaydet
         if cancelled_list:
@@ -3252,6 +3344,7 @@ class HYPApp(ctk.CTk):
         toplam_sure = stats.get('toplam_sure', 0)
         iptal_sayisi = len(cancelled_list) if cancelled_list else 0
         atlanan_detay_sayisi = len(skipped_list) if skipped_list else 0
+        basarisiz_detay_sayisi = len(failed_list) if failed_list else 0
 
         popup = ctk.CTkToplevel(self)
         popup.title("Otomasyon Tamamlandı")
@@ -3345,7 +3438,7 @@ class HYPApp(ctk.CTk):
                 hover_color="#d35400"
             ).pack(side="left", padx=5)
 
-        # Atlanan/Başarısız HYP'leri göster butonu (varsa)
+        # Atlanan HYP'leri göster butonu (varsa)
         if atlanan_detay_sayisi > 0:
             ctk.CTkButton(
                 btn_frame,
@@ -3356,6 +3449,19 @@ class HYPApp(ctk.CTk):
                 font=ctk.CTkFont(size=13),
                 fg_color="#9b59b6",
                 hover_color="#8e44ad"
+            ).pack(side="left", padx=5)
+
+        # Başarısız HYP'leri göster butonu (varsa)
+        if basarisiz_detay_sayisi > 0:
+            ctk.CTkButton(
+                btn_frame,
+                text="❌ Başarısız Detayları",
+                command=lambda: [popup.destroy(), self.show_failed_hyps_popup(failed_list)],
+                width=160,
+                height=35,
+                font=ctk.CTkFont(size=13),
+                fg_color="#e74c3c",
+                hover_color="#c0392b"
             ).pack(side="left", padx=5)
 
         # Tamam butonu
@@ -3588,6 +3694,97 @@ class HYPApp(ctk.CTk):
         ctk.CTkLabel(
             popup,
             text="Bu HYP'leri manuel olarak kontrol etmeniz gerekebilir.",
+            font=ctk.CTkFont(size=11),
+            text_color="#f39c12"
+        ).pack(pady=(5, 10))
+
+        # Kapat butonu
+        ctk.CTkButton(
+            popup,
+            text="Tamam",
+            command=popup.destroy,
+            width=120,
+            height=35,
+            font=ctk.CTkFont(size=13),
+            fg_color="#3498db",
+            hover_color="#2980b9"
+        ).pack(pady=(0, 15))
+
+    def show_failed_hyps_popup(self, failed_list):
+        """
+        Başarısız HYP'leri nedenleriyle birlikte popup pencerede göster.
+        """
+        if not failed_list:
+            return
+
+        popup = ctk.CTkToplevel(self)
+        popup.title("Başarısız HYP Detayları")
+        popup.geometry("550x450")
+        popup.resizable(True, True)
+
+        popup.update_idletasks()
+        x = (popup.winfo_screenwidth() // 2) - 275
+        y = (popup.winfo_screenheight() // 2) - 225
+        popup.geometry(f"550x450+{x}+{y}")
+
+        popup.configure(fg_color="#1a1a2e")
+        popup.transient(self)
+        popup.grab_set()
+
+        # Başlık
+        ctk.CTkLabel(
+            popup,
+            text="❌ BAŞARISIZ HYP'LER",
+            font=ctk.CTkFont(size=18, weight="bold"),
+            text_color="#e74c3c"
+        ).pack(pady=(15, 5))
+
+        # Alt başlık
+        ctk.CTkLabel(
+            popup,
+            text=f"Toplam {len(failed_list)} HYP tamamlanamadı",
+            font=ctk.CTkFont(size=12),
+            text_color="#bdc3c7"
+        ).pack(pady=(0, 10))
+
+        # Scrollable frame
+        scroll_frame = ctk.CTkScrollableFrame(
+            popup,
+            fg_color="#2c3e50",
+            corner_radius=10,
+            height=280
+        )
+        scroll_frame.pack(fill="both", expand=True, padx=20, pady=10)
+
+        # Her bir başarısız HYP için bilgi göster
+        for idx, item in enumerate(failed_list, 1):
+            item_frame = ctk.CTkFrame(scroll_frame, fg_color="#34495e", corner_radius=8)
+            item_frame.pack(fill="x", padx=5, pady=5)
+
+            # Hasta adı ve HYP tipi
+            hasta = item.get('hasta', 'Bilinmiyor')
+            hyp_ad = item.get('hyp_ad', item.get('hyp_tip', 'Bilinmiyor'))
+
+            ctk.CTkLabel(
+                item_frame,
+                text=f"{idx}. {hasta} - {hyp_ad}",
+                font=ctk.CTkFont(size=13, weight="bold"),
+                text_color="#ecf0f1"
+            ).pack(anchor="w", padx=10, pady=(8, 2))
+
+            # Neden
+            neden = item.get('neden', 'Bilinmiyor')
+            ctk.CTkLabel(
+                item_frame,
+                text=f"Neden: {neden}",
+                font=ctk.CTkFont(size=12),
+                text_color="#e74c3c"
+            ).pack(anchor="w", padx=10, pady=(2, 8))
+
+        # Alt bilgi
+        ctk.CTkLabel(
+            popup,
+            text="Bu HYP'leri manuel olarak tekrar deneyebilirsiniz.",
             font=ctk.CTkFont(size=11),
             text_color="#f39c12"
         ).pack(pady=(5, 10))

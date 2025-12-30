@@ -16,14 +16,14 @@
         "YAS_IZLEM": 11
     },
     "current_counts": {
-        "HT_TARAMA": 52,
-        "HT_IZLEM": 26,
-        "KVR_TARAMA": 5,
+        "HT_TARAMA": 64,
+        "HT_IZLEM": 30,
+        "KVR_TARAMA": 6,
         "KVR_IZLEM": 26,
         "DIY_TARAMA": 19,
-        "DIY_IZLEM": 18,
-        "OBE_TARAMA": 72,
-        "OBE_IZLEM": 18,
+        "DIY_IZLEM": 21,
+        "OBE_TARAMA": 91,
+        "OBE_IZLEM": 20,
         "YAS_IZLEM": 10
     },
     "deferred_counts": {
@@ -51,14 +51,14 @@
                 "YAS_IZLEM": 11
             },
             "current_counts": {
-                "HT_TARAMA": 52,
-                "HT_IZLEM": 26,
-                "KVR_TARAMA": 5,
+                "HT_TARAMA": 64,
+                "HT_IZLEM": 30,
+                "KVR_TARAMA": 6,
                 "KVR_IZLEM": 26,
                 "DIY_TARAMA": 19,
-                "DIY_IZLEM": 18,
-                "OBE_TARAMA": 72,
-                "OBE_IZLEM": 18,
+                "DIY_IZLEM": 21,
+                "OBE_TARAMA": 91,
+                "OBE_IZLEM": 20,
                 "YAS_IZLEM": 10
             },
             "deferred_counts": {
@@ -72,7 +72,7 @@
                 "KVR_IZLEM": 0,
                 "YAS_IZLEM": 0
             },
-            "last_updated": "2025-12-30 18:19"
+            "last_updated": "2025-12-30 23:03"
         }
     },
     "auto_delete_excess_kvr": true
