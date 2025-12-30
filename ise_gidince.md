@@ -39,6 +39,7 @@ Dosyalari okuduktan sonra bana ozet ver ve ne yapmak istedigimi sor.
 
 ## Notlar
 
+- **GitHub Repo:** https://github.com/robillardxx/Hyp-Automation
 - Chrome profil yolu: `C:\Users\osman\AppData\Local\Google\Chrome\User Data\hyp_profile`
 - Paylasimli klasor: `Z:\Dr Osman`
 - Hemsire uygulamasi: `hemsire_app/` klasoru
