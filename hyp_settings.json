@@ -16,14 +16,14 @@
         "YAS_IZLEM": 11
     },
     "current_counts": {
-        "HT_TARAMA": 64,
-        "HT_IZLEM": 30,
+        "HT_TARAMA": 66,
+        "HT_IZLEM": 39,
         "KVR_TARAMA": 6,
-        "KVR_IZLEM": 26,
+        "KVR_IZLEM": 35,
         "DIY_TARAMA": 19,
         "DIY_IZLEM": 21,
-        "OBE_TARAMA": 91,
-        "OBE_IZLEM": 20,
+        "OBE_TARAMA": 93,
+        "OBE_IZLEM": 21,
         "YAS_IZLEM": 10
     },
     "deferred_counts": {
@@ -51,13 +51,13 @@
                 "YAS_IZLEM": 11
             },
             "current_counts": {
-                "HT_TARAMA": 64,
-                "HT_IZLEM": 30,
+                "HT_TARAMA": 65,
+                "HT_IZLEM": 39,
                 "KVR_TARAMA": 6,
-                "KVR_IZLEM": 26,
+                "KVR_IZLEM": 35,
                 "DIY_TARAMA": 19,
                 "DIY_IZLEM": 21,
-                "OBE_TARAMA": 91,
+                "OBE_TARAMA": 92,
                 "OBE_IZLEM": 20,
                 "YAS_IZLEM": 10
             },
@@ -72,7 +72,43 @@
                 "KVR_IZLEM": 0,
                 "YAS_IZLEM": 0
             },
-            "last_updated": "2025-12-30 23:03"
+            "last_updated": "2025-12-31 16:26"
+        },
+        "2026-01": {
+            "targets": {
+                "HT_TARAMA": 95,
+                "HT_IZLEM": 49,
+                "DIY_TARAMA": 18,
+                "DIY_IZLEM": 33,
+                "OBE_TARAMA": 114,
+                "OBE_IZLEM": 18,
+                "KVR_TARAMA": 18,
+                "KVR_IZLEM": 16,
+                "YAS_IZLEM": 11
+            },
+            "current_counts": {
+                "HT_TARAMA": 66,
+                "HT_IZLEM": 39,
+                "KVR_TARAMA": 6,
+                "KVR_IZLEM": 35,
+                "DIY_TARAMA": 19,
+                "DIY_IZLEM": 21,
+                "OBE_TARAMA": 93,
+                "OBE_IZLEM": 21,
+                "YAS_IZLEM": 10
+            },
+            "deferred_counts": {
+                "HT_TARAMA": 0,
+                "HT_IZLEM": 0,
+                "DIY_TARAMA": 0,
+                "DIY_IZLEM": 0,
+                "OBE_TARAMA": 0,
+                "OBE_IZLEM": 0,
+                "KVR_TARAMA": 0,
+                "KVR_IZLEM": 0,
+                "YAS_IZLEM": 0
+            },
+            "last_updated": "2026-01-02 13:15"
         }
     },
     "auto_delete_excess_kvr": true
