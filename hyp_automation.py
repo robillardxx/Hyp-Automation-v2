@@ -2116,6 +2116,8 @@ class HYPAutomation:
 
         is_finished = False
         step = 0
+        same_page_count = 0
+        last_page = None
 
         while not is_finished and step < self.MAX_STEPS:
             step += 1
@@ -2125,6 +2127,16 @@ class HYPAutomation:
 
             current_page = self._detect_diy_page()
             self.log(f"   Adım {step}: Sayfa={current_page}", "DEBUG")
+
+            # Aynı sayfada takılı kalma kontrolü
+            if current_page == last_page:
+                same_page_count += 1
+                if same_page_count >= 3:
+                    self.log(f"   ⚠️ {current_page} sayfasında 3 kez takılı kaldı, HYP atlanıyor", "ERROR")
+                    return False
+            else:
+                same_page_count = 0
+            last_page = current_page
 
             # SAYFAYA GÖRE İŞLEM
             if current_page == "OZET":
@@ -2153,9 +2165,17 @@ class HYPAutomation:
 
             elif current_page == "KAN_SEKERI":
                 self.log("   Kan Şekeri Değerlendirme...")
-                # NOT: Zorunlu fizik muayene alanlari (Sistolik, Diyastolik, Nabiz)
-                # otomatik doldurulmaz - hemsire verileri kullanilmali
-                # ONEMLI: Tetkik checkbox'larini temizle - yoksa "Tetkikler cikinca devam et" moduna girer!
+                # ONEMLI: Gebelik sorusu bu sayfada da olabilir!
+                gebe_cevap = 'HAYIR'
+                if self.pregnancy_checker and self.current_patient_name:
+                    if self.pregnancy_checker.is_pregnant(
+                        tc=self.current_patient_tc,
+                        ad_soyad=self.current_patient_name
+                    ):
+                        gebe_cevap = 'EVET'
+                        self.log("      [!] GEBE HASTA TESPIT EDILDI!", "WARNING")
+                self._answer_pregnancy_question(gebe_cevap)
+                # Tetkik checkbox'larini temizle
                 tetkik_ok = self._uncheck_tetkik_boxes()
                 if not tetkik_ok:
                     self.log("   HYP iptal edildi, sonraki HYP'ye geciliyor", "WARNING")
@@ -2260,6 +2280,8 @@ class HYPAutomation:
 
         is_finished = False
         step = 0
+        same_page_count = 0
+        last_page = None
 
         while not is_finished and step < self.MAX_STEPS:
             step += 1
@@ -2269,6 +2291,16 @@ class HYPAutomation:
 
             current_page = self._detect_ht_page()
             self.log(f"   Adım {step}: Sayfa={current_page}", "DEBUG")
+
+            # Aynı sayfada takılı kalma kontrolü
+            if current_page == last_page:
+                same_page_count += 1
+                if same_page_count >= 3:
+                    self.log(f"   ⚠️ {current_page} sayfasında 3 kez takılı kaldı, HYP atlanıyor", "ERROR")
+                    return False
+            else:
+                same_page_count = 0
+            last_page = current_page
 
             # SAYFAYA GÖRE İŞLEM
             if current_page == "OZET":

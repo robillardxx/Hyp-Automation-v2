@@ -2679,24 +2679,10 @@ class HYPApp(ctk.CTk):
                     self.tc_queue = pending_tcs.copy()
                     self.after(0, self._update_queue_display)
 
-                # Otomasyon çalışmıyorsa ve kuyrukta TC varsa işle
+                # Otomasyon çalışmıyorsa ve kuyrukta TC varsa - KUYRUK OTOMASYONU BASLAT
                 if pending_tcs and not self.is_running:
-                    # İlk TC'yi al ve dosyasını sil
-                    tc = pending_tcs[0]
-                    tc_file = os.path.join(self.shared_folder, f"{tc}.tc")
-                    try:
-                        os.remove(tc_file)
-                    except:
-                        time.sleep(0.2)
-                        continue
-
-                    # Kuyruktan çıkar ve GUI güncelle
-                    if tc in self.tc_queue:
-                        self.tc_queue.remove(tc)
-                    self.after(0, self._update_queue_display)
-
-                    # TC'yi işle
-                    self.after(0, lambda t=tc: self._process_nurse_tc(t))
+                    # Kuyruk otomasyonunu başlat (tek Chrome oturumunda tüm kuyruğu işler)
+                    self.after(0, self._start_queue_automation)
 
                     # İşlem bitene kadar bekle
                     time.sleep(1)  # İşlemin başlamasını bekle
@@ -2734,6 +2720,188 @@ class HYPApp(ctk.CTk):
                 self.queue_list_label.configure(text=tc_list)
         except Exception as e:
             print(f"[QUEUE] Display update error: {e}")
+
+    def _start_queue_automation(self):
+        """Kuyruk otomasyonunu baslat - TEK CHROME OTURUMUNDA TUM KUYRUGU ISLE"""
+        if self.is_running:
+            return  # Zaten calisiyor
+
+        # Otomasyon baslat
+        self.is_running = True
+        self.start_button.configure(state="disabled")
+        self.history_button.configure(state="disabled")
+        self.stop_button.configure(state="normal")
+
+        def run_queue_automation():
+            try:
+                import config as cfg
+                cfg.PIN_CODE = self.pin_code
+
+                # Otomasyon nesnesi olustur
+                self.automation = HYPAutomation(
+                    log_callback=self.log_message,
+                    stats_callback=self.update_all_quota_cards
+                )
+
+                # Canli ilerleme callback
+                self.automation.on_hyp_success_callback = self.on_hyp_completed
+                self.automation.on_counts_fetched_callback = self.on_counts_fetched
+
+                # Driver baslat
+                self.log_message("🌐 Chrome başlatılıyor...")
+                if not self.automation.setup_driver(debug_mode=self.debug_mode.get()):
+                    self.log_message("❌ Chrome başlatılamadı!")
+                    return
+
+                # Login
+                self.log_message("🔐 HYP'ye giriş yapılıyor...")
+                has_saved_pin = self.pin_code is not None and len(self.pin_code) > 0
+
+                if not self.automation.login(auto_pin=has_saved_pin):
+                    self.log_message("❌ Login başarısız! Lütfen manuel giriş yapın.")
+                    return
+
+                self.log_message("✅ HYP'ye giriş başarılı!")
+
+                # ============================================================
+                # KUYRUK DONGUSU - Kuyruk bosalana kadar devam et
+                # ============================================================
+                processed_count = 0
+                while self.queue_listener_active:
+                    # Kuyruktan TC al
+                    tc = self._get_next_tc_from_queue()
+                    if not tc:
+                        # Kuyruk bos, biraz bekle belki yeni TC gelir
+                        import time
+                        time.sleep(2)
+                        tc = self._get_next_tc_from_queue()
+                        if not tc:
+                            # Hala bos, donguden cik
+                            break
+
+                    # TC'yi isle
+                    self.log_message(f"")
+                    self.log_message(f"{'='*50}")
+                    self.log_message(f"📋 TC: {tc}")
+                    self.log_message(f"{'='*50}")
+
+                    success = self.automation.process_patient(tc)
+                    processed_count += 1
+
+                    # Hasta adini al
+                    hasta_adi = getattr(self.automation, 'current_patient_name', '') or tc
+
+                    # Gecmise kaydet
+                    tarih = datetime.now().strftime("%d.%m.%Y %H:%M")
+                    durum = "success" if success else "warning"
+                    self.nurse_tc_history.append((tc, tarih, durum))
+
+                    # Hemsireye bildirim gonder
+                    if success:
+                        self.log_message(f"✅ TC {tc} - HYP'ler tamamlandı!")
+                        send_nurse_notification(
+                            self.shared_folder, tc, "success",
+                            f"{hasta_adi} hastanın HYP'leri başarıyla yapıldı!",
+                            hasta_adi=hasta_adi
+                        )
+                    else:
+                        # Basarisizlik nedenini belirle
+                        cancelled_hyps = self.automation.get_cancelled_hyps() if hasattr(self.automation, 'get_cancelled_hyps') else []
+                        sms_kapali = False
+                        eksik_tetkikler = []
+
+                        for hyp in cancelled_hyps:
+                            if hyp.get('sms_gerekli'):
+                                sms_kapali = True
+                            if hyp.get('eksik_tetkikler'):
+                                eksik_tetkikler.extend(hyp.get('eksik_tetkikler', []))
+
+                        if sms_kapali:
+                            self.log_message(f"⚠️ TC {tc} - SMS onayı kapalı!")
+                            send_nurse_notification(
+                                self.shared_folder, tc, "sms_kapali",
+                                f"{hasta_adi} hastanın HYP'leri yapılamadı çünkü SMS onayı kapalı!",
+                                hasta_adi=hasta_adi
+                            )
+                        elif eksik_tetkikler:
+                            eksik_tetkikler = list(set(eksik_tetkikler))
+                            tetkik_listesi = ", ".join(eksik_tetkikler[:5])
+                            if len(eksik_tetkikler) > 5:
+                                tetkik_listesi += f" ve {len(eksik_tetkikler)-5} tane daha"
+                            self.log_message(f"⚠️ TC {tc} - Eksik tetkikler: {tetkik_listesi}")
+                            send_nurse_notification(
+                                self.shared_folder, tc, "eksik_tetkik",
+                                f"{hasta_adi} hastanın HYP'leri yapılamadı çünkü şu tetkikler eksik: {tetkik_listesi}",
+                                hasta_adi=hasta_adi,
+                                eksik_tetkikler=eksik_tetkikler
+                            )
+                        else:
+                            self.log_message(f"⚠️ TC {tc} - İşlem tamamlanamadı")
+                            send_nurse_notification(
+                                self.shared_folder, tc, "error",
+                                f"{hasta_adi} hastanın HYP'leri yapılamadı!",
+                                hasta_adi=hasta_adi
+                            )
+
+                # Kuyruk bitti
+                self.log_message(f"🏁 Kuyruk tamamlandı! ({processed_count} hasta işlendi)")
+
+                # Chrome'u kapat
+                try:
+                    if self.automation and self.automation.driver:
+                        self.automation.driver.quit()
+                        self.log_message("🔒 Chrome kapatıldı")
+                except:
+                    pass
+
+            except Exception as e:
+                self.log_message(f"❌ Hata: {e}")
+                import traceback
+                traceback.print_exc()
+
+                # Hata durumunda Chrome'u kapat
+                try:
+                    if self.automation and self.automation.driver:
+                        self.automation.driver.quit()
+                except:
+                    pass
+
+            finally:
+                self.is_running = False
+                self.automation = None
+                self.after(0, lambda: self.start_button.configure(state="normal"))
+                self.after(0, lambda: self.history_button.configure(state="normal"))
+                self.after(0, lambda: self.stop_button.configure(state="disabled"))
+
+        self.automation_thread = threading.Thread(target=run_queue_automation, daemon=True)
+        self.automation_thread.start()
+
+    def _get_next_tc_from_queue(self):
+        """Kuyruktan siradaki TC'yi al ve dosyasini sil"""
+        import os
+        try:
+            if not os.path.exists(self.shared_folder):
+                return None
+
+            for filename in os.listdir(self.shared_folder):
+                if filename.endswith('.tc'):
+                    tc = filename[:-3]
+                    if len(tc) == 11 and tc.isdigit():
+                        # Dosyayi sil
+                        tc_file = os.path.join(self.shared_folder, filename)
+                        try:
+                            os.remove(tc_file)
+                        except:
+                            continue
+
+                        # Kuyruktan cikar ve GUI guncelle
+                        if tc in self.tc_queue:
+                            self.tc_queue.remove(tc)
+                        self.after(0, self._update_queue_display)
+                        return tc
+        except:
+            pass
+        return None
 
     def _process_nurse_tc(self, tc):
         """Hemsireden gelen TC'yi isle"""

@@ -1,5 +1,24 @@
 # HYP Otomasyon - Guncelleme Gunlugu
 
+## [v6.9.7] - 2026-01-05
+
+### Kuyruk Sistemi Iyilestirmesi
+- **Tek Chrome Oturumu:** Kuyruktaki tum hastalar artik tek Chrome oturumunda isleniyor
+- **Performans:** Her hasta icin Chrome acilip kapanmasi sorunu giderildi
+- **Kararlilik:** Chrome crash sorunu cozuldu
+
+### Sonsuz Dongu Duzeltmesi
+- **Diyabet Protokolu:** Ayni sayfada 3 kez takilinca HYP atlanip sonrakine geciliyor
+- **Hipertansiyon Protokolu:** Ayni kontrol eklendi
+- **Log Mesaji:** 'X sayfasinda 3 kez takili kaldi, HYP atlaniyor' uyarisi
+
+### Gebelik Sorusu Duzeltmesi
+- **KAN_SEKERI Sayfasi:** Diyabet taramada gebelik sorusu artik cevaplanıyor
+- **Gebe Listesi Kontrolu:** Hasta gebe listesindeyse EVET, degilse HAYIR seciliyor
+- **Onceki Sorun:** Gebelik sorusu cevaplanmadigi icin sayfa ilerlemiyordu
+
+---
+
 ## [v6.9.6] - 2025-12-30
 
 ### Performans Iyilestirmeleri
