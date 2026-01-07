@@ -1212,28 +1212,126 @@ class HYPAutomation:
     # ============================================================
     # GİRİŞ İŞLEMİ
     # ============================================================
+    def _detect_current_page(self) -> str:
+        """
+        Chrome'un hangi sayfada olduğunu algıla.
+
+        Returns:
+            "dashboard" - HYP dashboard (giriş yapılmış)
+            "hyp_loggedin" - HYP içi herhangi bir sayfa (giriş yapılmış)
+            "pin_popup" - PIN girişi popup'ı açık
+            "login_page" - HYP ana sayfası (giriş yapılmamış)
+            "other" - HYP dışı sayfa veya boş
+        """
+        try:
+            current_url = self.driver.current_url.lower()
+
+            # 1. HYP dışı bir site mi?
+            if "hyp.saglik.gov.tr" not in current_url:
+                return "other"
+
+            # 2. Dashboard sayfası mı?
+            if "dashboard" in current_url:
+                return "dashboard"
+
+            # 3. HYP içi başka bir sayfa mı? (giriş yapılmış demek)
+            # Hasta Listesi, Fizik Muayene vs. menü linkleri varsa giriş yapılmış
+            if self.check_exists("//a[contains(., 'Hasta Listesi')]", timeout=1):
+                return "hyp_loggedin"
+            if self.check_exists("//a[contains(., 'Fizik Muayene')]", timeout=0.5):
+                return "hyp_loggedin"
+            if self.check_exists("//span[contains(@class, 'user-name')]", timeout=0.5):
+                return "hyp_loggedin"
+
+            # 4. PIN popup açık mı?
+            if self.check_exists("//input[@id='popupPinCode_Password']", timeout=0.5):
+                return "pin_popup"
+
+            # 5. Giriş butonu var mı? (ana sayfa, giriş yapılmamış)
+            if self.check_exists("//*[@id='header']/div/div/button", timeout=0.5):
+                return "login_page"
+
+            # 6. e-İmza sekmesi veya login modal açık mı?
+            if self.check_exists("//a[@href='#e-imza']", timeout=0.5):
+                return "login_page"
+
+            return "other"
+
+        except Exception:
+            return "other"
+
     def login(self, auto_pin: bool = True) -> bool:
         """
-        HYP'ye giriş yap
+        HYP'ye giriş yap - Akıllı sayfa algılama ile.
+        Chrome hangi ekranda açılırsa açılsın, doğru adımdan devam eder.
 
         Args:
             auto_pin: True ise PIN otomatik girilir, False ise manuel beklenir
         """
         try:
-            # Zaten giriş yapılmış mı kontrol et
-            if self.DEBUG_MODE and "hyp.saglik.gov.tr" in self.driver.current_url:
-                if "dashboard" in self.driver.current_url.lower() or self.check_exists("//a[contains(., 'Hasta')]"):
-                    self.log("Zaten giriş yapılmış, devam ediliyor...", "SUCCESS")
-                    return True
+            # ============================================================
+            # ADIM 1: Mevcut sayfa durumunu algıla
+            # ============================================================
+            page_state = self._detect_current_page()
+            self.log(f"📍 Sayfa durumu algılandı: {page_state}")
 
-            self.log("HYP'ye bağlanılıyor...")
+            # ============================================================
+            # ADIM 2: Duruma göre hareket et
+            # ============================================================
+
+            # DURUM A: Zaten giriş yapılmış (dashboard veya HYP içi sayfa)
+            if page_state in ("dashboard", "hyp_loggedin"):
+                self.log("✅ Zaten giriş yapılmış, devam ediliyor...", "SUCCESS")
+                # Dashboard'da değilse, dashboard'a git
+                if page_state != "dashboard":
+                    try:
+                        self.driver.get("https://hyp.saglik.gov.tr/dashboard")
+                        time.sleep(1)
+                    except:
+                        pass
+                return True
+
+            # DURUM B: PIN popup zaten açık
+            if page_state == "pin_popup":
+                self.log("🔑 PIN ekranı açık, PIN girişine geçiliyor...")
+                return self._enter_pin(auto_pin)
+
+            # DURUM C: Login sayfasında (giriş butonu görünür)
+            if page_state == "login_page":
+                self.log("📋 Login sayfası algılandı, giriş yapılıyor...")
+                return self._do_full_login(auto_pin)
+
+            # DURUM D: HYP dışı sayfa veya boş - HYP'ye git
+            self.log("🌐 HYP'ye yönlendiriliyor...")
             self.driver.get(HYP_URL)
-            time.sleep(0.5)  # OPTIMIZE
+            time.sleep(1)
 
+            # Tekrar kontrol et
+            page_state = self._detect_current_page()
+
+            if page_state in ("dashboard", "hyp_loggedin"):
+                self.log("✅ Session aktif, giriş yapılmış!", "SUCCESS")
+                return True
+            elif page_state == "pin_popup":
+                return self._enter_pin(auto_pin)
+            else:
+                return self._do_full_login(auto_pin)
+
+        except Exception as e:
+            self.log(f"Login hatası: {e}", "ERROR")
+            return False
+
+    def _do_full_login(self, auto_pin: bool) -> bool:
+        """Tam login işlemi (giriş butonu -> e-imza -> PIN)"""
+        try:
             # Giriş butonu
             if not self.click_element("//*[@id='header']/div/div/button", timeout=5):
-                self.log("Giriş butonu bulunamadı!", "ERROR")
-                return False
+                # Belki zaten login modal açık?
+                if self.check_exists("//a[@href='#e-imza']", timeout=1):
+                    pass  # Modal açık, devam et
+                else:
+                    self.log("Giriş butonu bulunamadı!", "ERROR")
+                    return False
 
             time.sleep(1)
 
@@ -1246,12 +1344,19 @@ class HYPAutomation:
                 pass
 
             self.log("PIN ekranı bekleniyor...")
-            time.sleep(1.5)  # OPTIMIZE: 3 -> 1.5
+            time.sleep(1.5)
 
-            # PIN GİRİŞİ - OTOMATİK veya MANUEL
-            # auto_pin=True VE PIN kaydedilmişse otomatik gir
+            return self._enter_pin(auto_pin)
+
+        except Exception as e:
+            self.log(f"Full login hatası: {e}", "ERROR")
+            return False
+
+    def _enter_pin(self, auto_pin: bool) -> bool:
+        """PIN girişi yap ve dashboard'a ulaş"""
+        try:
             if auto_pin and config.PIN_CODE:
-                # OTOMATİK: PIN'i otomatik gir
+                # OTOMATİK PIN
                 self.log("🔑 PIN OTOMATİK giriliyor...")
                 try:
                     pin_input = WebDriverWait(self.driver, 10).until(
@@ -1277,17 +1382,16 @@ class HYPAutomation:
                 self.log("Giriş başarılı!", "SUCCESS")
                 time.sleep(5)
             else:
-                # MANUEL: Kullanıcının PIN girmesini bekle
+                # MANUEL PIN
                 self.log("=" * 50)
                 self.log("🔑 MANUEL PIN GİRİŞİ BEKLENİYOR...")
                 self.log("   Lütfen e-İmza PIN'inizi girin ve İmzala'ya tıklayın")
                 self.log("=" * 50)
 
-                # Dashboard'a ulaşana kadar bekle (max 120 saniye)
                 max_wait = 120
                 waited = 0
                 while waited < max_wait:
-                    time.sleep(0.5)  # OPTIMIZE
+                    time.sleep(2)
                     waited += 2
 
                     current_url = self.driver.current_url.lower()
@@ -1295,7 +1399,6 @@ class HYPAutomation:
                         self.log("✅ Manuel giriş başarılı!", "SUCCESS")
                         break
 
-                    # Her 10 saniyede bir hatırlatma
                     if waited % 10 == 0:
                         self.log(f"   ⏳ Bekleniyor... ({waited}/{max_wait} sn)")
 
@@ -1307,7 +1410,7 @@ class HYPAutomation:
             return True
 
         except Exception as e:
-            self.log(f"Login hatası: {e}", "ERROR")
+            self.log(f"PIN giriş hatası: {e}", "ERROR")
             return False
 
     # ============================================================

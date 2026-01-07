@@ -1,5 +1,27 @@
 # HYP Otomasyon - Guncelleme Gunlugu
 
+## [v6.9.8] - 2026-01-07
+
+### Akilli Sayfa Algilama Sistemi
+- **Session Devam Destegi:** Chrome session aktifken (dashboard aciksa) tekrar login yapmaya calismaz
+- **Otomatik Durum Tespiti:** Chrome hangi ekranda acilirsa acilsin dogru adimdan devam eder
+- **5 Farkli Durum Algilanir:**
+  - `dashboard` - HYP dashboard (giris yapilmis)
+  - `hyp_loggedin` - HYP ici herhangi bir sayfa (giris yapilmis)
+  - `pin_popup` - PIN girisi popup'i acik
+  - `login_page` - HYP ana sayfasi (giris yapilmamis)
+  - `other` - HYP disi sayfa
+
+### Yeni Fonksiyonlar
+- **_detect_current_page():** Mevcut sayfa durumunu algilar
+- **_do_full_login():** Tam login islemi (giris butonu -> e-imza -> PIN)
+- **_enter_pin():** PIN girisi ve dashboard'a ulasma
+
+### Duzeltilen Sorun
+- **"Giris butonu bulunamadi" Hatasi:** Onceki session aktifken Chrome acildiginda dashboard gorunuyordu ama kod login butonu ariyordu. Artik session aktifse direkt devam ediyor.
+
+---
+
 ## [v6.9.7] - 2026-01-05
 
 ### Kuyruk Sistemi Iyilestirmesi
