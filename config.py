@@ -9,7 +9,10 @@ HYP OTOMASYON - CONFIG V5.0
 # HYP BAĞLANTI
 # ============================================================
 HYP_URL = "https://hyp.saglik.gov.tr/"
-PIN_CODE = ""  # Runtime'da set edilecek
+
+# RUNTIME PIN - Sadece oturum boyunca bellekte tutulur
+# DISK'E KAYDEDILMEZ - Guvenli saklama icin login_manager.SecurePINStorage kullanilir
+PIN_CODE = ""  # gui_app.py tarafindan runtime'da atanir
 
 # ============================================================
 # AYLIK HEDEFLER (26 Nolu Birim - Kasım 2025)

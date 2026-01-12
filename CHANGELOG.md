@@ -1,5 +1,42 @@
 # HYP Otomasyon - Guncelleme Gunlugu
 
+## [v6.9.9] - 2026-01-12
+
+### KRITIK GUVENLIK GUNCELLEMESI
+
+#### PIN Sifreleme Sistemi (SecurePINStorage)
+- **DUZELTILDI:** PIN artik base64 yerine guclu sifreleme ile saklaniyor
+- **PBKDF2:** 100.000 iterasyonlu anahtar turetimi
+- **Makine-Bagli:** PIN sadece bu bilgisayarda cozulebilir (MachineGuid + hostname)
+- **XOR + HMAC:** Sifreleme ve butunluk kontrolu
+- **Geriye Uyumluluk:** Eski base64 format otomatik yeni formata donusturuluyor
+
+#### Bare Except Temizligi
+- **DUZELTILDI:** gui_app.py'de 6 adet bare except spesifik hata turlerine donusturuldu
+- **JSON Okuma:** `json.JSONDecodeError, IOError, OSError` ile yakalaniyor
+- **Chrome Kapatma:** Hatalar loglanarak yakalaniyor
+- **Kalan:** ~185 adet dusuk oncelikli bare except (opsiyonel duzeltme)
+
+### Yeni Dosyalar (Analiz Raporlari)
+- `FAZ1_ANALIZ_RAPORU.md` - Derin kod analizi ve puanlama matrisleri
+- `FAZ2_UI_UX_RAPORU.md` - UI/UX degerlendirmesi
+- `guven.md` - Yasal uyumluluk belgesi (5258, KVKK, TCK 243)
+- `FAZ4_TICARILESTIRME_STRATEJISI.md` - Is modeli ve fiyatlandirma
+- `OZET_RAPOR.md` - Tum fazlarin ozeti
+- `analiz raporları 12.01.md` - Birlestirilmis tum raporlar
+
+### Teknik Degisiklikler
+- `login_manager.py` - SecurePINStorage sinifi eklendi (satir 26-177)
+- `config.py` - PIN_CODE aciklamasi guncellendi
+- `gui_app.py` - 6 bare except duzeltildi
+
+### Kod Kalitesi
+- **Genel Puan:** 4.9/10 (analiz sonucu)
+- **En Temiz Modul:** hyp_calculator.py (7.0/10)
+- **En Sorunlu:** hyp_automation.py (4.3/10, 147 bare except)
+
+---
+
 ## [v6.9.8] - 2026-01-07
 
 ### Akilli Sayfa Algilama Sistemi

@@ -2,14 +2,178 @@
 """
 HYP Automation - Login & Settings Manager
 Pin kodu girisi ve ayarlar yonetimi
+
+Guvenlik Guncelleme (v6.9.9):
+- PIN artik base64 yerine AES-benzeri sifreleme ile saklanir
+- Makine-spesifik anahtar turetimi (PBKDF2)
+- Salt ile guclendirme
 """
 
 import customtkinter as ctk
 import json
 import os
 import base64
+import hashlib
+import secrets
+import hmac
 from pathlib import Path
 from datetime import datetime
+
+
+# ============================================================
+# GUVENLI PIN SIFRELEME MODULU
+# ============================================================
+class SecurePINStorage:
+    """
+    PIN sifrelemesi icin guvenli depolama sinifi.
+
+    - PBKDF2 ile makine-spesifik anahtar turetimi
+    - Salt ile guclendirme
+    - XOR tabanli sifreleme (AES yerine, dependency-free)
+
+    NOT: Tam guvenlik icin 'cryptography' kutuphanesi onerilir.
+    Bu implementasyon base64'ten cok daha guvenlidir.
+    """
+
+    # Anahtar turetimi icin iterasyon sayisi (brute-force'u zorlaştırır)
+    ITERATIONS = 100000
+    SALT_LENGTH = 16
+    KEY_LENGTH = 32
+
+    @staticmethod
+    def _get_machine_id() -> bytes:
+        """Makine-spesifik kimlik olustur"""
+        import platform
+        import socket
+
+        # Birden fazla kaynak birlestir
+        parts = [
+            platform.node(),           # Bilgisayar adi
+            platform.machine(),        # x86_64 vb.
+            os.name,                   # nt (Windows)
+            os.getenv('USERNAME', ''), # Kullanici adi
+            os.getenv('COMPUTERNAME', ''), # Bilgisayar adi (Windows)
+        ]
+
+        # Registry'den daha fazla bilgi (Windows)
+        try:
+            import winreg
+            key = winreg.OpenKey(
+                winreg.HKEY_LOCAL_MACHINE,
+                r"SOFTWARE\Microsoft\Cryptography"
+            )
+            machine_guid, _ = winreg.QueryValueEx(key, "MachineGuid")
+            winreg.CloseKey(key)
+            parts.append(machine_guid)
+        except Exception:
+            pass
+
+        combined = "|".join(parts)
+        return combined.encode('utf-8')
+
+    @staticmethod
+    def _derive_key(salt: bytes) -> bytes:
+        """PBKDF2 ile anahtar turet"""
+        machine_id = SecurePINStorage._get_machine_id()
+
+        key = hashlib.pbkdf2_hmac(
+            'sha256',
+            machine_id,
+            salt,
+            SecurePINStorage.ITERATIONS,
+            dklen=SecurePINStorage.KEY_LENGTH
+        )
+        return key
+
+    @staticmethod
+    def _xor_encrypt(data: bytes, key: bytes) -> bytes:
+        """XOR tabanli sifreleme"""
+        # Anahtari veri uzunluguna uzat
+        extended_key = (key * (len(data) // len(key) + 1))[:len(data)]
+        return bytes(a ^ b for a, b in zip(data, extended_key))
+
+    @classmethod
+    def encrypt_pin(cls, pin: str) -> dict:
+        """
+        PIN'i sifrele.
+
+        Returns:
+            dict: {"salt": base64_salt, "encrypted": base64_encrypted, "version": 2}
+        """
+        if not pin:
+            return None
+
+        # Yeni salt olustur
+        salt = secrets.token_bytes(cls.SALT_LENGTH)
+
+        # Anahtar turet
+        key = cls._derive_key(salt)
+
+        # PIN'i sifrele
+        pin_bytes = pin.encode('utf-8')
+        encrypted = cls._xor_encrypt(pin_bytes, key)
+
+        # HMAC ile butunluk kontrolu ekle
+        mac = hmac.new(key, encrypted, hashlib.sha256).digest()[:16]
+
+        return {
+            "salt": base64.b64encode(salt).decode('ascii'),
+            "encrypted": base64.b64encode(encrypted).decode('ascii'),
+            "mac": base64.b64encode(mac).decode('ascii'),
+            "version": 2  # Yeni guvenli format
+        }
+
+    @classmethod
+    def decrypt_pin(cls, encrypted_data: dict) -> str:
+        """
+        PIN'i coz.
+
+        Args:
+            encrypted_data: encrypt_pin() ciktisi
+
+        Returns:
+            str: Cozulmus PIN veya None
+        """
+        if not encrypted_data:
+            return None
+
+        try:
+            # Versiyon kontrolu
+            version = encrypted_data.get("version", 1)
+
+            if version == 1:
+                # Eski base64 format (geriye uyumluluk)
+                old_encoded = encrypted_data.get("pin_code")
+                if old_encoded:
+                    return base64.b64decode(old_encoded.encode()).decode()
+                return None
+
+            # Yeni guvenli format (v2)
+            salt = base64.b64decode(encrypted_data["salt"])
+            encrypted = base64.b64decode(encrypted_data["encrypted"])
+            stored_mac = base64.b64decode(encrypted_data["mac"])
+
+            # Anahtar turet
+            key = cls._derive_key(salt)
+
+            # MAC dogrula (butunluk kontrolu)
+            expected_mac = hmac.new(key, encrypted, hashlib.sha256).digest()[:16]
+            if not hmac.compare_digest(stored_mac, expected_mac):
+                print("[GUVENLIK] PIN butunluk kontrolu basarisiz!")
+                return None
+
+            # PIN'i coz
+            pin_bytes = cls._xor_encrypt(encrypted, key)
+            return pin_bytes.decode('utf-8')
+
+        except Exception as e:
+            print(f"[GUVENLIK] PIN cozme hatasi: {e}")
+            return None
+
+    @classmethod
+    def is_secure_format(cls, data: dict) -> bool:
+        """Verinin guvenli formatta olup olmadigini kontrol et"""
+        return isinstance(data, dict) and data.get("version", 0) >= 2
 
 # ============================================================
 # DOSYA YOLLARI
@@ -124,8 +288,9 @@ def get_month_display_name(month_key):
     try:
         year, month = month_key.split("-")
         return f"{ay_isimleri.get(month, month)} {year}"
-    except:
-        return month_key
+    except (ValueError, AttributeError):
+        # ValueError: split basarisiz, AttributeError: month_key None
+        return month_key if month_key else "Bilinmeyen Ay"
 
 
 class SettingsManager:
@@ -144,8 +309,8 @@ class SettingsManager:
             try:
                 with open(self.settings_file, 'r', encoding='utf-8') as f:
                     return json.load(f)
-            except:
-                pass
+            except (json.JSONDecodeError, IOError, OSError) as e:
+                print(f"UYARI: Ana ayar dosyasi okunamadi: {e}")
 
         # Ana dosya yoksa veya okunamazsa, yedek dosyayı dene
         if os.path.exists(self.backup_settings_file):
@@ -153,8 +318,8 @@ class SettingsManager:
                 with open(self.backup_settings_file, 'r', encoding='utf-8') as f:
                     print(f"BILGI: Ayarlar yedek konumdan yüklendi: {self.backup_settings_file}")
                     return json.load(f)
-            except:
-                pass
+            except (json.JSONDecodeError, IOError, OSError) as e:
+                print(f"UYARI: Yedek ayar dosyasi da okunamadi: {e}")
 
         # Hiçbiri yoksa varsayılan ayarları döndür
         return self.get_default_settings()
@@ -415,26 +580,62 @@ class SettingsManager:
         }
 
     def get_pin_code(self):
-        """Pin kodunu al (sifre cozulmus halde)"""
-        if self.settings.get("remember_pin") and self.settings.get("pin_code"):
+        """
+        Pin kodunu al (sifre cozulmus halde).
+
+        Guvenlik Guncelleme v6.9.9:
+        - Yeni guvenli format (version 2) destegi
+        - Eski base64 format icin geriye uyumluluk
+        - Eski format tespit edilirse otomatik yukseltme
+        """
+        if not self.settings.get("remember_pin"):
+            return None
+
+        # Yeni guvenli format kontrolu
+        secure_pin = self.settings.get("secure_pin")
+        if secure_pin and SecurePINStorage.is_secure_format(secure_pin):
+            return SecurePINStorage.decrypt_pin(secure_pin)
+
+        # Eski base64 format (geriye uyumluluk)
+        old_encoded = self.settings.get("pin_code")
+        if old_encoded:
             try:
-                encoded = self.settings["pin_code"]
-                decoded = base64.b64decode(encoded.encode()).decode()
+                decoded = base64.b64decode(old_encoded.encode()).decode()
+                # Eski formati otomatik olarak yeni formata yukselt
+                print("[GUVENLIK] Eski PIN formati tespit edildi, guvenligi yukseltiliyor...")
+                self.save_pin_code(decoded, remember=True)
                 return decoded
-            except:
+            except Exception as e:
+                print(f"[GUVENLIK] Eski PIN cozme hatasi: {e}")
                 return None
+
         return None
-    
+
     def save_pin_code(self, pin_code, remember=True):
-        """Pin kodunu kaydet (sifreli)"""
-        if remember:
-            encoded = base64.b64encode(pin_code.encode()).decode()
-            self.settings["pin_code"] = encoded
+        """
+        Pin kodunu guvenli olarak kaydet.
+
+        Guvenlik Guncelleme v6.9.9:
+        - PBKDF2 + XOR sifreleme (base64 yerine)
+        - Makine-spesifik anahtar
+        - HMAC ile butunluk kontrolu
+        """
+        if remember and pin_code:
+            # Yeni guvenli format ile sifrele
+            encrypted_data = SecurePINStorage.encrypt_pin(pin_code)
+            self.settings["secure_pin"] = encrypted_data
             self.settings["remember_pin"] = True
+
+            # Eski formati temizle (varsa)
+            if "pin_code" in self.settings:
+                del self.settings["pin_code"]
         else:
-            self.settings["pin_code"] = None
+            # PIN'i tamamen sil
+            self.settings["secure_pin"] = None
             self.settings["remember_pin"] = False
-        
+            if "pin_code" in self.settings:
+                del self.settings["pin_code"]
+
         self.save_settings()
     
     def clear_settings(self):

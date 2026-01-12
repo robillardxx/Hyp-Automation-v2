@@ -2851,8 +2851,8 @@ class HYPApp(ctk.CTk):
                     if self.automation and self.automation.driver:
                         self.automation.driver.quit()
                         self.log_message("🔒 Chrome kapatıldı")
-                except:
-                    pass
+                except Exception as e:
+                    print(f"Chrome kapatma hatasi (normal): {e}")
 
             except Exception as e:
                 self.log_message(f"❌ Hata: {e}")
@@ -2863,8 +2863,8 @@ class HYPApp(ctk.CTk):
                 try:
                     if self.automation and self.automation.driver:
                         self.automation.driver.quit()
-                except:
-                    pass
+                except Exception as e:
+                    print(f"Chrome kapatma hatasi (hata durumu): {e}")
 
             finally:
                 self.is_running = False
@@ -3042,8 +3042,8 @@ class HYPApp(ctk.CTk):
                     if self.automation and self.automation.driver:
                         self.automation.driver.quit()
                         self.log_message("🔒 Chrome kapatıldı")
-                except:
-                    pass
+                except Exception as e:
+                    print(f"Chrome kapatma hatasi (hemsire TC): {e}")
 
             except Exception as e:
                 self.log_message(f"❌ Hata: {e}")
@@ -3064,8 +3064,8 @@ class HYPApp(ctk.CTk):
                 try:
                     if self.automation and self.automation.driver:
                         self.automation.driver.quit()
-                except:
-                    pass
+                except Exception as e:
+                    print(f"Chrome kapatma hatasi (hemsire TC hata): {e}")
 
             finally:
                 self.is_running = False
@@ -4096,7 +4096,8 @@ class HYPApp(ctk.CTk):
             try:
                 with open(sms_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
-            except:
+            except (json.JSONDecodeError, IOError, OSError) as e:
+                print(f"SMS dosyasi okuma hatasi: {e}")
                 data = []
 
         if not data:
@@ -4300,7 +4301,8 @@ class HYPApp(ctk.CTk):
             try:
                 with open(eksik_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
-            except:
+            except (json.JSONDecodeError, IOError, OSError) as e:
+                print(f"Eksik tetkik dosyasi okuma hatasi: {e}")
                 data = []
 
         if not data:

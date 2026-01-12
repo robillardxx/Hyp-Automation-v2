@@ -1,30 +1,29 @@
 {
-    "pin_code": "NjcyODUw",
     "remember_pin": true,
     "last_login": null,
     "theme": "dark",
     "window_size": "1200x800",
     "monthly_targets": {
-        "HT_TARAMA": 95,
-        "HT_IZLEM": 49,
-        "DIY_TARAMA": 18,
-        "DIY_IZLEM": 33,
-        "OBE_TARAMA": 114,
-        "OBE_IZLEM": 18,
-        "KVR_TARAMA": 18,
-        "KVR_IZLEM": 16,
+        "HT_TARAMA": 102,
+        "HT_IZLEM": 52,
+        "DIY_TARAMA": 19,
+        "DIY_IZLEM": 34,
+        "OBE_TARAMA": 122,
+        "OBE_IZLEM": 20,
+        "KVR_TARAMA": 20,
+        "KVR_IZLEM": 14,
         "YAS_IZLEM": 11
     },
     "current_counts": {
-        "HT_TARAMA": 68,
-        "HT_IZLEM": 44,
-        "KVR_TARAMA": 6,
-        "KVR_IZLEM": 37,
-        "DIY_TARAMA": 23,
-        "DIY_IZLEM": 22,
-        "OBE_TARAMA": 101,
-        "OBE_IZLEM": 28,
-        "YAS_IZLEM": 10
+        "HT_TARAMA": 29,
+        "HT_IZLEM": 17,
+        "DIY_TARAMA": 11,
+        "DIY_IZLEM": 11,
+        "OBE_TARAMA": 43,
+        "OBE_IZLEM": 24,
+        "KVR_TARAMA": 3,
+        "KVR_IZLEM": 16,
+        "YAS_IZLEM": 3
     },
     "deferred_counts": {
         "HT_TARAMA": 0,
@@ -76,26 +75,26 @@
         },
         "2026-01": {
             "targets": {
-                "HT_TARAMA": 95,
-                "HT_IZLEM": 49,
-                "DIY_TARAMA": 18,
-                "DIY_IZLEM": 33,
-                "OBE_TARAMA": 114,
-                "OBE_IZLEM": 18,
-                "KVR_TARAMA": 18,
-                "KVR_IZLEM": 16,
+                "HT_TARAMA": 102,
+                "HT_IZLEM": 52,
+                "DIY_TARAMA": 19,
+                "DIY_IZLEM": 34,
+                "OBE_TARAMA": 122,
+                "OBE_IZLEM": 20,
+                "KVR_TARAMA": 20,
+                "KVR_IZLEM": 14,
                 "YAS_IZLEM": 11
             },
             "current_counts": {
-                "HT_TARAMA": 68,
-                "HT_IZLEM": 44,
-                "KVR_TARAMA": 6,
-                "KVR_IZLEM": 37,
-                "DIY_TARAMA": 23,
-                "DIY_IZLEM": 22,
-                "OBE_TARAMA": 101,
-                "OBE_IZLEM": 28,
-                "YAS_IZLEM": 10
+                "HT_TARAMA": 29,
+                "HT_IZLEM": 17,
+                "DIY_TARAMA": 11,
+                "DIY_IZLEM": 11,
+                "OBE_TARAMA": 43,
+                "OBE_IZLEM": 24,
+                "KVR_TARAMA": 3,
+                "KVR_IZLEM": 16,
+                "YAS_IZLEM": 3
             },
             "deferred_counts": {
                 "HT_TARAMA": 0,
@@ -108,8 +107,14 @@
                 "KVR_IZLEM": 0,
                 "YAS_IZLEM": 0
             },
-            "last_updated": "2026-01-05 15:25"
+            "last_updated": "2026-01-12 16:47"
         }
     },
-    "auto_delete_excess_kvr": true
+    "auto_delete_excess_kvr": true,
+    "secure_pin": {
+        "salt": "XGn5lr3k50kRSSaTCEP+SQ==",
+        "encrypted": "r+u3f7Kf",
+        "mac": "16wWEjXIb1orvoq5HMAtkg==",
+        "version": 2
+    }
 }
