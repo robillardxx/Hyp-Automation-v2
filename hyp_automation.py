@@ -1097,8 +1097,25 @@ class HYPAutomation:
         except Exception as e:
             self.log(f"SMS kapalı hasta kaydedilemedi: {e}", "ERROR")
 
+    def _get_patient_name_from_page(self) -> str:
+        """Sayfadan hasta adini oku"""
+        try:
+            selectors = ['.patient-name', '.hasta-adi', '.sidebar-header h3', '.patient-info .name', '.sidebar .name']
+            for sel in selectors:
+                try:
+                    el = self.driver.find_element(By.CSS_SELECTOR, sel)
+                    if el and el.text.strip():
+                        name = el.text.strip()
+                        if not (len(name) == 11 and name.isdigit()):
+                            return name
+                except:
+                    continue
+            return ""
+        except:
+            return ""
+
     def _is_sms_kapali_hasta(self, tc: str) -> bool:
-        """Hasta SMS onayı kapalı mı kontrol et"""
+        """Hasta SMS onayi kapali mi kontrol et"""
         return tc in self.sms_kapali_hastalar
 
     def _check_sms_onay_popup(self) -> bool:
@@ -1754,7 +1771,8 @@ class HYPAutomation:
         self.current_patient_tc = None
 
         try:
-            self.log(f"ISLENIYOR: {patient_name}")
+            # TC mi yoksa isim mi?
+            is_tc_input = len(patient_name) == 11 and patient_name.isdigit()
             self.keep_alive()
 
             # 1. Hasta Listesine Git
@@ -1811,6 +1829,8 @@ class HYPAutomation:
 
             # 3. Hasta İsmine Tıkla
             name_clicked = False
+            # TC mi yoksa isim mi kontrol et
+            is_tc_search = len(patient_name) == 11 and patient_name.isdigit()
             # Türkçe karakter normalizasyonu ile karşılaştır
             patient_name_normalized = normalize_tr(patient_name)
 
@@ -1822,31 +1842,53 @@ class HYPAutomation:
                     break
                 time.sleep(0.5)
 
-            for item in list_items:
+            # TC ile arama yapildiysa ve tek sonuc varsa direkt tikla
+            if is_tc_search and len(list_items) == 1:
                 try:
-                    item_text_normalized = normalize_tr(item.text)
-                    if patient_name_normalized in item_text_normalized:
-                        try:
-                            name_el = item.find_element(By.CSS_SELECTOR, ".name")
-                            self.js_click(name_el)
-                        except:
-                            self.js_click(item)
-
-                        time.sleep(0.5)
-                        self.log(f"Dogru hasta bulundu ve tiklandi: {patient_name}")
-                        name_clicked = True
-                        break
+                    name_el = list_items[0].find_element(By.CSS_SELECTOR, ".name")
+                    self.js_click(name_el)
                 except:
-                    continue
-
-            if not name_clicked:
-                if len(list_items) == 1:
                     self.js_click(list_items[0])
-                    time.sleep(0.5)
-                    self.log(f"Tek sonuc bulundu, tiklandi: {patient_name}")
-                    name_clicked = True
-                else:
-                    self.log(f"UYARI: {patient_name} arama sonuclarinda bulunamadi!", "WARNING")
+                time.sleep(0.5)
+                self.log(f"TC ile arama: tek sonuc bulundu ve tiklandi")
+                name_clicked = True
+            elif is_tc_search and len(list_items) > 1:
+                # TC ile birden fazla sonuc geldiyse ilkine tikla
+                try:
+                    name_el = list_items[0].find_element(By.CSS_SELECTOR, ".name")
+                    self.js_click(name_el)
+                except:
+                    self.js_click(list_items[0])
+                time.sleep(0.5)
+                self.log(f"TC ile arama: ilk sonuca tiklandi")
+                name_clicked = True
+            else:
+                # Isim ile arama - eski mantik
+                for item in list_items:
+                    try:
+                        item_text_normalized = normalize_tr(item.text)
+                        if patient_name_normalized in item_text_normalized:
+                            try:
+                                name_el = item.find_element(By.CSS_SELECTOR, ".name")
+                                self.js_click(name_el)
+                            except:
+                                self.js_click(item)
+
+                            time.sleep(0.5)
+                            self.log(f"Dogru hasta bulundu ve tiklandi: {patient_name}")
+                            name_clicked = True
+                            break
+                    except:
+                        continue
+
+                if not name_clicked:
+                    if len(list_items) == 1:
+                        self.js_click(list_items[0])
+                        time.sleep(0.5)
+                        self.log(f"Tek sonuc bulundu, tiklandi: {patient_name}")
+                        name_clicked = True
+                    else:
+                        self.log(f"UYARI: {patient_name} arama sonuclarinda bulunamadi!", "WARNING")
 
             if not name_clicked:
                 self.log("Hasta ismi/karti bulunamadi!", "WARNING")
@@ -1855,19 +1897,35 @@ class HYPAutomation:
             self.check_error_page()
 
             # ============================================================
-            # TC NUMARASINI AL VE SMS KAPALI KONTROLÜ YAP
+            # TC NUMARASINI VE HASTA ADINI AL
             # ============================================================
             try:
-                # Sayfa metninden TC numarasını çıkar
+                # Sayfa metninden TC numarasini cikar
                 page_text = self.driver.execute_script("return document.body.innerText;")
                 import re
                 tc_match = re.search(r'(\d{2}\*+\d{2})', page_text)
                 if tc_match:
                     self.current_patient_tc = tc_match.group(1)
+                
+                # TC ile arama yapildiysa sayfadan gercek hasta adini al
+                if is_tc_input:
+                    gercek_ad = self._get_patient_name_from_page()
+                    if gercek_ad:
+                        self.current_patient_name = gercek_ad
+                    else:
+                        self.current_patient_name = patient_name  # TC olarak kalsin
+                
+                # ISLENIYOR logunu yaz - isim (TC) formati
+                display_name = self.current_patient_name or patient_name
+                display_tc = patient_name if is_tc_input else (self.current_patient_tc or "")
+                if display_tc and display_tc != display_name:
+                    self.log(f"ISLENIYOR: {display_name} ({display_tc})")
+                else:
+                    self.log(f"ISLENIYOR: {display_name}")
 
-                # SMS kapalı mı kontrol et
+                # SMS kapali mi kontrol et
                 if self.current_patient_tc and self._is_sms_kapali_hasta(self.current_patient_tc):
-                    self.log(f"   [SMS KAPALI] {patient_name} daha önce SMS kapalı olarak işaretlendi - ATLANİYOR!", "WARNING")
+                    self.log(f"   [SMS KAPALI] {display_name} daha once SMS kapali olarak isaretlendi - ATLANIYOR!", "WARNING")
                     self.session_stats["atlanan"] += 1
                     return True  # Atlandi ama hata degil
             except:
@@ -1928,9 +1986,19 @@ class HYPAutomation:
                     break
                 
                 card = yapilabilir[0]
-                self.log(f"Kart işleniyor ({deneme+1}): {card['baslik']} ({card['hyp_tip']})")
+                self.log(f"Kart isleniyor ({deneme+1}): {card['baslik']} ({card['hyp_tip']})")
                 
-                success = self._process_single_card(card, islenen_kartlar)
+                result = self._process_single_card(card, islenen_kartlar)
+                
+                # SMS KAPALI - TUM KARTLARI ATLA
+                if result == "SMS_SKIP":
+                    self.log(f"   [SMS KAPALI] Hastanin tum HYP'leri atlaniyor!", "WARNING")
+                    # Tum kartlari islenmis olarak isaretle
+                    for c in yapilabilir:
+                        islenen_kartlar.add(c["hyp_tip"])
+                    break  # Donguyu kir, sonraki hastaya gec
+                
+                success = result if isinstance(result, bool) else False
                 islenen_kartlar.add(card["hyp_tip"])
                 
                 if success:
@@ -2002,18 +2070,21 @@ class HYPAutomation:
                 self.log(f"   [!] SMS ONAYI GEREKLİ - Hasta atlanıyor!", "WARNING")
                 # Popup'u kapat
                 self._close_sms_popup_and_skip()
-                # Hastayı kaydet (bir daha hiç işlenmeyecek)
+                # Sayfadan gercek hasta adini al (TC ile arama yapildiysa)
+                gercek_ad = self._get_patient_name_from_page() or self.current_patient_name or "Bilinmeyen"
+                self.current_patient_name = gercek_ad  # Guncelle
+                # Hastayi kaydet (bir daha hic islenmeyecek)
                 self._save_sms_kapali_hasta(
                     tc=self.current_patient_tc or "",
-                    ad_soyad=self.current_patient_name or "Bilinmeyen",
+                    ad_soyad=gercek_ad,
                     yas=""
                 )
-                # İptal listesine ekle (popup için)
+                # Iptal listesine ekle (popup icin)
                 self._record_cancelled_hyp(
-                    reason="SMS onayı gerekli - Hasta SMS doğrulaması kapalı",
+                    reason="SMS onayi gerekli - Hasta SMS dogrulamasi kapali",
                     sms_gerekli=True
                 )
-                return False  # Bu kartı atla
+                return "SMS_SKIP"  # Tum kartlari atla
 
             # Popup kontrolü - sadece bilgi popup'larini kapat, devam et
             self.kill_popups()
@@ -4363,12 +4434,22 @@ class HYPAutomation:
             eksik_tetkikler: Eksik olan tetkik listesi (örn: ['Kreatinin', 'eGFR'])
             sms_gerekli: SMS onayı gerekli mi?
         """
+        # Eksik tetkik listesi bos ise nedenden cikar
+        final_eksik = eksik_tetkikler or []
+        if not final_eksik and reason:
+            if 'Eksik tetkik:' in reason:
+                tetkikler_str = reason.split('Eksik tetkik:')[1].strip()
+                final_eksik = [t.strip() for t in tetkikler_str.split(',') if t.strip()]
+            elif 'Dis lab girilemedi:' in reason:
+                tetkikler_str = reason.split('Dis lab girilemedi:')[1].strip()
+                final_eksik = [t.strip() for t in tetkikler_str.split(',') if t.strip()]
+
         cancelled_info = {
             "hasta": self.current_patient_name or "Bilinmeyen Hasta",
             "tc": getattr(self, 'current_patient_tc', ''),
             "hyp_tipi": getattr(self, '_current_hyp_type', 'Bilinmeyen'),
             "neden": reason,
-            "eksik_tetkikler": eksik_tetkikler or [],
+            "eksik_tetkikler": final_eksik,
             "sms_gerekli": sms_gerekli,
             "zaman": datetime.now().strftime("%H:%M:%S")
         }
@@ -4376,13 +4457,13 @@ class HYPAutomation:
             self.cancelled_hyps = []
         self.cancelled_hyps.append(cancelled_info)
 
-        # Detaylı log
+        # Detayli log
         detay = f"{cancelled_info['hasta']} - {cancelled_info['hyp_tipi']}"
-        if eksik_tetkikler:
-            detay += f" - Eksik: {', '.join(eksik_tetkikler)}"
+        if final_eksik:
+            detay += f" - Eksik: {', '.join(final_eksik)}"
         if sms_gerekli:
-            detay += " - SMS ONAYI GEREKLİ"
-        self.log(f"   [KAYIT] İptal kaydedildi: {detay}", "DEBUG")
+            detay += " - SMS ONAYI GEREKLI"
+        self.log(f"   [KAYIT] Iptal kaydedildi: {detay}", "DEBUG")
 
     def _confirm_cancel_popup(self):
         """
@@ -4479,7 +4560,7 @@ class HYPAutomation:
                             self.driver.execute_script('arguments[0].scrollIntoView({block: "center"});', span)
                             time.sleep(0.1)  # 0.3 -> 0.1 (optimize)
                             self.driver.execute_script('arguments[0].click();', span)
-                            self.log("   'Tumunu kaldir' tiklandi", "SUCCESS")
+                            self.log("   'Tumunu kaldir' tiklandi", "DEBUG")
                             time.sleep(0.2)  # OPTIMIZE: 0.5 -> 0.2
                             tumunu_kaldir_clicked = True
                             break
@@ -4507,7 +4588,7 @@ class HYPAutomation:
                                 self.driver.execute_script('arguments[0].scrollIntoView({block: "center"});', el)
                                 time.sleep(0.1)  # 0.2 -> 0.1 (optimize)
                                 self.driver.execute_script('arguments[0].click();', el)
-                                self.log("   'Tumunu kaldir' (XPath) tiklandi", "SUCCESS")
+                                self.log("   'Tumunu kaldir' (XPath) tiklandi", "DEBUG")
                                 time.sleep(0.2)  # OPTIMIZE: 0.5 -> 0.2
                                 tumunu_kaldir_clicked = True
                                 break
@@ -4522,11 +4603,11 @@ class HYPAutomation:
         remaining = self._count_active_checkboxes()
 
         if remaining == 0:
-            self.log("   Tum checkboxlar 'Tumunu kaldir' ile temizlendi!", "SUCCESS")
+            self.log("   Tum checkboxlar 'Tumunu kaldir' ile temizlendi!", "DEBUG")
             return True
 
         # TIKLI CHECKBOX KALDI - DIS LAB SONUCU GIR
-        self.log(f"   !!! {remaining} tikli checkbox KALDIRILAMADI - Dis lab sonucu giriliyor...", "WARNING")
+        self.log(f"   !!! {remaining} tikli checkbox KALDIRILAMADI - Dis lab sonucu giriliyor...", "DEBUG")
 
         # ============================================================
         # ONEMLI: Cache'deki bilgilerle dis lab sonucu gir
@@ -4542,7 +4623,7 @@ class HYPAutomation:
         dis_lab_success = self._try_enter_all_external_lab_results()
 
         if dis_lab_success:
-            self.log("   TUM dis lab sonuclari basariyla girildi!", "SUCCESS")
+            self.log("   TUM dis lab sonuclari basariyla girildi!", "DEBUG")
             time.sleep(0.2)  # OPTIMIZE: 0.5 -> 0.2
 
             # ============================================================
@@ -4569,7 +4650,7 @@ class HYPAutomation:
                 )
                 return False
             else:
-                self.log("   Dis lab sonrasi tum checkbox'lar temizlendi", "SUCCESS")
+                self.log("   Dis lab sonrasi tum checkbox'lar temizlendi", "DEBUG")
 
             return True
         else:
@@ -4729,7 +4810,7 @@ class HYPAutomation:
 
             # Degeri gir - JAVASCRIPT ILE HIZLI GIRIS
             self.driver.execute_script("arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input', {bubbles: true})); arguments[0].dispatchEvent(new Event('change', {bubbles: true}));", input_field, str(test_value))
-            self.log(f"   {test_name} degeri girildi: {test_value}", "SUCCESS")
+            self.log(f"   {test_name} degeri girildi: {test_value}", "DEBUG")
 
             # Kaydet butonuna tikla
             save_xpaths = [
@@ -5705,7 +5786,7 @@ class HYPAutomation:
             # Degeri gir - JAVASCRIPT ILE HIZLI GIRIS
             try:
                 self.driver.execute_script("arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input', {bubbles: true})); arguments[0].dispatchEvent(new Event('change', {bubbles: true}));", value_input, str(value_to_enter))
-                self.log(f"   {test_name} degeri girildi: {value_to_enter}", "SUCCESS")
+                self.log(f"   {test_name} degeri girildi: {value_to_enter}", "DEBUG")
                 time.sleep(0.2)
             except Exception as e:
                 self.log(f"   Deger girme hatasi: {e}", "DEBUG")
@@ -5716,7 +5797,7 @@ class HYPAutomation:
             saved = self._save_dis_lab_modal(modal)
 
             if saved:
-                self.log(f"   Dis lab sonucu kaydedildi ({test_name}: {value_to_enter})", "SUCCESS")
+                self.log(f"   Dis lab sonucu kaydedildi ({test_name}: {value_to_enter})", "DEBUG")
                 time.sleep(1)
                 return True
             else:
@@ -5860,7 +5941,7 @@ class HYPAutomation:
                 if value_input:
                     try:
                         self.driver.execute_script("arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input', {bubbles: true})); arguments[0].dispatchEvent(new Event('change', {bubbles: true}));", value_input, str(value))
-                        self.log(f"   {test_name} degeri girildi: {value}", "SUCCESS")
+                        self.log(f"   {test_name} degeri girildi: {value}", "DEBUG")
                         entered_count += 1
                     except Exception as e:
                         self.log(f"   {test_name} deger girme hatasi: {e}", "DEBUG")
@@ -5873,7 +5954,7 @@ class HYPAutomation:
                 saved = self._save_dis_lab_modal(modal)
 
                 if saved:
-                    self.log(f"   {entered_count} dis lab sonucu kaydedildi!", "SUCCESS")
+                    self.log(f"   {entered_count} dis lab sonucu kaydedildi!", "DEBUG")
                     time.sleep(0.3)  # 1 -> 0.3 saniye (HIZLANDIRILDI)
                     return True
                 else:

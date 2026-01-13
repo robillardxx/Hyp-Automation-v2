@@ -15,13 +15,13 @@
         "YAS_IZLEM": 11
     },
     "current_counts": {
-        "HT_TARAMA": 29,
-        "HT_IZLEM": 17,
-        "DIY_TARAMA": 11,
-        "DIY_IZLEM": 11,
-        "OBE_TARAMA": 43,
-        "OBE_IZLEM": 24,
-        "KVR_TARAMA": 3,
+        "HT_TARAMA": 46,
+        "HT_IZLEM": 20,
+        "DIY_TARAMA": 18,
+        "DIY_IZLEM": 13,
+        "OBE_TARAMA": 61,
+        "OBE_IZLEM": 32,
+        "KVR_TARAMA": 6,
         "KVR_IZLEM": 16,
         "YAS_IZLEM": 3
     },
@@ -86,13 +86,13 @@
                 "YAS_IZLEM": 11
             },
             "current_counts": {
-                "HT_TARAMA": 29,
-                "HT_IZLEM": 17,
-                "DIY_TARAMA": 11,
-                "DIY_IZLEM": 11,
-                "OBE_TARAMA": 43,
-                "OBE_IZLEM": 24,
-                "KVR_TARAMA": 3,
+                "HT_TARAMA": 46,
+                "HT_IZLEM": 20,
+                "DIY_TARAMA": 18,
+                "DIY_IZLEM": 13,
+                "OBE_TARAMA": 61,
+                "OBE_IZLEM": 32,
+                "KVR_TARAMA": 6,
                 "KVR_IZLEM": 16,
                 "YAS_IZLEM": 3
             },
@@ -107,7 +107,7 @@
                 "KVR_IZLEM": 0,
                 "YAS_IZLEM": 0
             },
-            "last_updated": "2026-01-12 16:47"
+            "last_updated": "2026-01-13 17:33"
         }
     },
     "auto_delete_excess_kvr": true,

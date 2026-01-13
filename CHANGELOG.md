@@ -1,5 +1,44 @@
 # HYP Otomasyon - Guncelleme Gunlugu
 
+## [v7.0.0] - 2026-01-13
+
+### SMS Kapali Hasta Optimizasyonu
+- **KRITIK:** SMS kapali hastada artik TUM HYP kartlari tek seferde atlaniyor
+- **Onceki Sorun:** Her HYP karti icin ayri ayri SMS popup kontrolu yapiliyordu (zaman kaybi)
+- **Yeni Davranis:** Ilk SMS popup'ta "SMS_SKIP" sinyali donuyor, tum kartlar atlaniyor
+- **Log:** `[SMS KAPALI] Hastanin tum HYP'leri atlaniyor!`
+
+### TC ile Hasta Arama
+- **YENI:** TC numarasi ile arama yapildiginda akilli sonuc secimi
+- **Tek Sonuc:** Direkt tiklaniyor
+- **Coklu Sonuc:** Ilk sonuca tiklaniyor (TC aramasi spesifik)
+- **Sayfadan Isim Alma:** `_get_patient_name_from_page()` fonksiyonu eklendi
+
+### Log Formati Degisikligi
+- **YENI FORMAT:** `ISLENIYOR: AYSE DEMIROZ (47773380526)`
+- **Onceki:** `ISLENIYOR: 47773380526` (sadece TC)
+- **Simdi:** Hasta adi oncelikli, parantez icinde TC
+
+### Eksik Tetkik Bildirimi
+- **DUZELTILDI:** Eksik tetkik listesine eklenmeme sorunu cozuldu
+- **_record_cancelled_hyp:** Bos liste durumunda `reason`dan tetkik isimleri cikariliyor
+- **gui_app.py:** `neden` alaninda "Eksik" geciyorsa da listeye ekleniyor
+- **Hemsire Bildirimi:** Eksik tetkik durumunda hemsireye bildirim gonderiliyor
+
+### SMS Kapali Liste Duzeltmesi
+- **DUZELTILDI:** Listede isim yerine TC gosterme sorunu
+- **Sayfadan gercek hasta adi alinip kaydediliyor**
+- **Format:** Hasta adi + TC (maskelenmis)
+
+### Log Temizligi
+- **11 gereksiz log mesaji DEBUG seviyesine cevrildi:**
+  - Checkbox temizleme detaylari
+  - Dis lab sonucu giris detaylari
+  - Tumunu kaldir tiklama mesajlari
+- **Hekim icin daha temiz log ciktisi**
+
+---
+
 ## [v6.9.9] - 2026-01-12
 
 ### KRITIK GUVENLIK GUNCELLEMESI

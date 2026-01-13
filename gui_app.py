@@ -4491,9 +4491,14 @@ class HYPApp(ctk.CTk):
             except:
                 data = []
 
-        # Yeni kayitlari ekle (sadece eksik tetkik olanlari)
+        # Yeni kayitlari ekle (eksik tetkik nedeniyle iptal edilen tum HYP'ler)
         for item in cancelled_list:
-            if item.get('eksik_tetkikler'):  # Sadece eksik tetkik varsa ekle
+            # Eksik tetkik listesi VEYA nedende 'Eksik' geciyorsa ekle
+            has_eksik = item.get('eksik_tetkikler') and len(item.get('eksik_tetkikler', [])) > 0
+            neden = item.get('neden', '')
+            has_reason = 'Eksik' in neden or 'Dis lab' in neden
+            
+            if has_eksik or has_reason:
                 # Ayni kayit var mi kontrol et
                 is_duplicate = any(
                     d.get('hasta') == item.get('hasta') and
