@@ -1,5 +1,33 @@
 # HYP Otomasyon - Guncelleme Gunlugu
 
+## [v7.0.1] - 2026-01-15
+
+### Atlanan HYP Sebepleri Goruntuleme
+- **YENI:** "Atlanan Sebepleri Gor" butonu artik calisir durumda
+- **3 farkli atlama durumu icin detayli bilgi kaydediliyor:**
+  - SMS izni kapali hastalar
+  - HYP karti bulunamayan hastalar
+  - Yapilabilir kart olmayan durumlar (daha once tamamlanmis/cache'de)
+- **Popup Icerigi:** Hasta adi, TC, HYP tipi, atlama sebebi ve tarih
+
+### Log Temizligi
+- **KALDIRILDI:** "Sol panel karti tamamlandi" gereksiz log mesaji
+- **Sebep:** Zaten "🎯 +1 tamamlandi (Session: X, Kalan hedef: Y)" mesaji gosteriliyor
+
+### Oturum Ozeti Butonu ve Gecmis
+- **YENI:** Performans cubugunda "📋 Ozet" butonu eklendi
+- **YENI:** Sekmeli popup tasarimi - "Mevcut Oturum" ve "Gecmis Oturumlar"
+- **YENI:** Son 50 oturum otomatik kaydediliyor
+- **YENI:** Gecmis oturumlarin detaylari goruntulenebilir
+- **YENI:** Gecmis temizleme ozelligi
+
+### Sol Panel Kart Guncelleme Duzeltmesi
+- **DUZELTILDI:** Kota kartlarinin guncellenme sorunu
+- **update_idletasks():** Widget guncelleme zorlamasi eklendi
+- **Debug Loglari:** Kart guncelleme takibi icin konsol ciktilari eklendi
+
+---
+
 ## [v7.0.0] - 2026-01-13
 
 ### SMS Kapali Hasta Optimizasyonu

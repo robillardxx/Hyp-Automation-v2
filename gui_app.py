@@ -1148,7 +1148,21 @@ class HYPApp(ctk.CTk):
             font=ctk.CTkFont(size=11),
             text_color=self.COLORS["text_dark"]
         )
-        self.perf_label.pack()
+        self.perf_label.pack(side="left", padx=(0, 10))
+        
+        # Ozet butonu
+        self.summary_button = ctk.CTkButton(
+            self.perf_frame,
+            text="📋 Özet",
+            command=self.show_session_summary,
+            width=70,
+            height=24,
+            font=ctk.CTkFont(size=11),
+            fg_color="#6c5ce7",
+            hover_color="#5b4cdb",
+            corner_radius=6
+        )
+        self.summary_button.pack(side="left")
 
         # Progress bar
         self.progress = ctk.CTkProgressBar(
@@ -1621,8 +1635,10 @@ class HYPApp(ctk.CTk):
     def update_quota_card(self, tarama_kodu, current, target, deferred=0):
         """Kota kartini guncelle"""
         if tarama_kodu not in self.quota_cards:
+            print(f"[DEBUG] Kart bulunamadi: {tarama_kodu}")
             return
         card = self.quota_cards[tarama_kodu]
+        print(f"[DEBUG] Kart guncelleniyor: {tarama_kodu} = {current}/{target}")
 
         total_done = current + deferred
         remaining = max(0, target - total_done)
@@ -1644,6 +1660,12 @@ class HYPApp(ctk.CTk):
 
         # Badge guncelle
         self._update_card_badge(card["badge_frame"], card["badge_label"], percentage)
+        
+        # Widget guncellemesini zorla
+        try:
+            self.update_idletasks()
+        except:
+            pass
 
     def update_all_quota_cards(self, monthly_stats, remaining_targets):
         saved_targets = self.settings_manager.get_monthly_targets()
@@ -1658,6 +1680,26 @@ class HYPApp(ctk.CTk):
         """Performans göstergesini güncelle"""
         text = f"📊 Bu oturum: {stats.get('basarili', 0)} başarılı | {stats.get('basarisiz', 0)} başarısız | {stats.get('atlanan', 0)} atlanan"
         self.perf_label.configure(text=text)
+
+    def show_session_summary(self):
+        """
+        Mevcut oturum ozetini popup olarak goster.
+        Ozet butonuna tiklandiginda cagrilir.
+        """
+        if not self.automation:
+            # Automation yoksa bos istatistik goster
+            stats = {"basarili": 0, "basarisiz": 0, "atlanan": 0, "toplam_sure": 0}
+            self.show_completion_popup(stats, [], [], [])
+            return
+        
+        # Automation'dan verileri al
+        stats = self.automation.session_stats.copy() if hasattr(self.automation, 'session_stats') else {}
+        cancelled = self.automation.get_cancelled_hyps() if hasattr(self.automation, 'get_cancelled_hyps') else []
+        skipped = self.automation.get_skipped_notifications() if hasattr(self.automation, 'get_skipped_notifications') else []
+        failed = self.automation.get_failed_hyps() if hasattr(self.automation, 'get_failed_hyps') else []
+        
+        # Popup'i goster (gecmise kaydetme - zaten mevcut oturum)
+        self.show_completion_popup(stats, cancelled, skipped, failed, save_to_history=False)
 
     def on_hyp_completed(self, hyp_tip: str, hasta_adi: str):
         """
@@ -3496,16 +3538,62 @@ class HYPApp(ctk.CTk):
         self.history_button.configure(state="normal")
         self.stop_button.configure(state="disabled")
 
-    def show_completion_popup(self, stats: dict, cancelled_list: list, skipped_list: list = None, failed_list: list = None):
+    def show_completion_popup(self, stats: dict, cancelled_list: list, skipped_list: list = None, failed_list: list = None, save_to_history: bool = True):
         """
-        Otomasyon tamamlandığında özet popup göster.
-        Başarılı, başarısız, atlanan sayıları ve iptal edilen/atlanan/başarısız HYP'leri gösterir.
+        Otomasyon ozet popup goster - Sekmeli tasarim.
+        Mevcut oturum ve gecmis oturumlari gosterir.
         """
         # Eksik tetkik kayitlarini dosyaya kaydet
         if cancelled_list:
             self.save_eksik_tetkik_from_automation(cancelled_list)
             self.refresh_eksik_tetkik_list()
 
+        # Oturumu gecmise kaydet (sadece yeni oturumlar icin)
+        if save_to_history and (stats.get('basarili', 0) > 0 or stats.get('basarisiz', 0) > 0 or stats.get('atlanan', 0) > 0):
+            self.settings_manager.save_session_history(stats, cancelled_list, skipped_list, failed_list)
+
+        popup = ctk.CTkToplevel(self)
+        popup.title("Oturum Ozeti")
+        popup.geometry("550x520")
+        popup.resizable(False, False)
+
+        popup.update_idletasks()
+        x = (popup.winfo_screenwidth() // 2) - 275
+        y = (popup.winfo_screenheight() // 2) - 260
+        popup.geometry(f"550x520+{x}+{y}")
+
+        popup.configure(fg_color="#1a1a2e")
+        popup.transient(self)
+        popup.grab_set()
+
+        # Tabview
+        tabview = ctk.CTkTabview(popup, fg_color="#16213e", segmented_button_fg_color="#2c3e50",
+                                  segmented_button_selected_color="#6c5ce7", corner_radius=10)
+        tabview.pack(fill="both", expand=True, padx=15, pady=15)
+
+        tab_current = tabview.add("Mevcut Oturum")
+        tab_history = tabview.add("Gecmis Oturumlar")
+
+        # ========== MEVCUT OTURUM SEKMESI ==========
+        self._build_session_content(tab_current, stats, cancelled_list, skipped_list, failed_list, popup)
+
+        # ========== GECMIS OTURUMLAR SEKMESI ==========
+        self._build_history_tab(tab_history, popup)
+
+        # Tamam butonu (altta)
+        ctk.CTkButton(
+            popup,
+            text="Tamam",
+            command=popup.destroy,
+            width=120,
+            height=35,
+            font=ctk.CTkFont(size=13),
+            fg_color="#3498db",
+            hover_color="#2980b9"
+        ).pack(pady=(0, 15))
+
+    def _build_session_content(self, parent, stats, cancelled_list, skipped_list, failed_list, popup):
+        """Oturum icerigini olustur (mevcut veya gecmis icin)"""
         basarili = stats.get('basarili', 0)
         basarisiz = stats.get('basarisiz', 0)
         atlanan = stats.get('atlanan', 0)
@@ -3514,61 +3602,39 @@ class HYPApp(ctk.CTk):
         atlanan_detay_sayisi = len(skipped_list) if skipped_list else 0
         basarisiz_detay_sayisi = len(failed_list) if failed_list else 0
 
-        popup = ctk.CTkToplevel(self)
-        popup.title("Otomasyon Tamamlandı")
-        popup.geometry("450x450")
-        popup.resizable(False, False)
+        # Ana bilgi cercevesi
+        info_frame = ctk.CTkFrame(parent, fg_color="#2c3e50", corner_radius=12)
+        info_frame.pack(fill="x", padx=15, pady=10)
 
-        popup.update_idletasks()
-        x = (popup.winfo_screenwidth() // 2) - 225
-        y = (popup.winfo_screenheight() // 2) - 200
-        popup.geometry(f"450x400+{x}+{y}")
-
-        popup.configure(fg_color="#1a1a2e")
-        popup.transient(self)
-        popup.grab_set()
-
-        # Başlık
-        ctk.CTkLabel(
-            popup,
-            text="🏁 OTOMASYON TAMAMLANDI",
-            font=ctk.CTkFont(size=20, weight="bold"),
-            text_color="#2ecc71"
-        ).pack(pady=(20, 15))
-
-        # Ana bilgi çerçevesi
-        info_frame = ctk.CTkFrame(popup, fg_color="#2c3e50", corner_radius=12)
-        info_frame.pack(fill="x", padx=25, pady=10)
-
-        # Başarılı
+        # Basarili
         row1 = ctk.CTkFrame(info_frame, fg_color="transparent")
         row1.pack(fill="x", padx=15, pady=(15, 5))
-        ctk.CTkLabel(row1, text="✅ Başarılı:", font=ctk.CTkFont(size=14), text_color="#ecf0f1", anchor="w").pack(side="left")
+        ctk.CTkLabel(row1, text="Basarili:", font=ctk.CTkFont(size=14), text_color="#ecf0f1", anchor="w").pack(side="left")
         ctk.CTkLabel(row1, text=str(basarili), font=ctk.CTkFont(size=16, weight="bold"), text_color="#2ecc71", anchor="e").pack(side="right")
 
-        # Başarısız
+        # Basarisiz
         row2 = ctk.CTkFrame(info_frame, fg_color="transparent")
         row2.pack(fill="x", padx=15, pady=5)
-        ctk.CTkLabel(row2, text="❌ Başarısız:", font=ctk.CTkFont(size=14), text_color="#ecf0f1", anchor="w").pack(side="left")
+        ctk.CTkLabel(row2, text="Basarisiz:", font=ctk.CTkFont(size=14), text_color="#ecf0f1", anchor="w").pack(side="left")
         ctk.CTkLabel(row2, text=str(basarisiz), font=ctk.CTkFont(size=16, weight="bold"), text_color="#e74c3c" if basarisiz > 0 else "#95a5a6", anchor="e").pack(side="right")
 
         # Atlanan
         row3 = ctk.CTkFrame(info_frame, fg_color="transparent")
         row3.pack(fill="x", padx=15, pady=5)
-        ctk.CTkLabel(row3, text="⏭️ Atlanan:", font=ctk.CTkFont(size=14), text_color="#ecf0f1", anchor="w").pack(side="left")
+        ctk.CTkLabel(row3, text="Atlanan:", font=ctk.CTkFont(size=14), text_color="#ecf0f1", anchor="w").pack(side="left")
         ctk.CTkLabel(row3, text=str(atlanan), font=ctk.CTkFont(size=16, weight="bold"), text_color="#f39c12" if atlanan > 0 else "#95a5a6", anchor="e").pack(side="right")
 
-        # İptal Edilen
+        # Iptal Edilen
         if iptal_sayisi > 0:
             row4 = ctk.CTkFrame(info_frame, fg_color="transparent")
             row4.pack(fill="x", padx=15, pady=5)
-            ctk.CTkLabel(row4, text="⚠️ İptal Edilen:", font=ctk.CTkFont(size=14), text_color="#ecf0f1", anchor="w").pack(side="left")
+            ctk.CTkLabel(row4, text="Iptal Edilen:", font=ctk.CTkFont(size=14), text_color="#ecf0f1", anchor="w").pack(side="left")
             ctk.CTkLabel(row4, text=str(iptal_sayisi), font=ctk.CTkFont(size=16, weight="bold"), text_color="#e67e22", anchor="e").pack(side="right")
 
-        # Süre
+        # Sure
         row5 = ctk.CTkFrame(info_frame, fg_color="transparent")
         row5.pack(fill="x", padx=15, pady=(5, 15))
-        ctk.CTkLabel(row5, text="⏱️ Toplam Süre:", font=ctk.CTkFont(size=14), text_color="#ecf0f1", anchor="w").pack(side="left")
+        ctk.CTkLabel(row5, text="Toplam Sure:", font=ctk.CTkFont(size=14), text_color="#ecf0f1", anchor="w").pack(side="left")
         if toplam_sure > 0:
             dakika = int(toplam_sure // 60)
             saniye = int(toplam_sure % 60)
@@ -3577,72 +3643,245 @@ class HYPApp(ctk.CTk):
             sure_text = "-"
         ctk.CTkLabel(row5, text=sure_text, font=ctk.CTkFont(size=16, weight="bold"), text_color="#3498db", anchor="e").pack(side="right")
 
-        # Başarı oranı
+        # Basari orani
         toplam = basarili + basarisiz
         if toplam > 0:
             oran = (basarili / toplam) * 100
             oran_renk = "#2ecc71" if oran >= 90 else "#f39c12" if oran >= 70 else "#e74c3c"
             ctk.CTkLabel(
-                popup,
-                text=f"Başarı Oranı: %{oran:.0f}",
+                parent,
+                text=f"Basari Orani: %{oran:.0f}",
                 font=ctk.CTkFont(size=16, weight="bold"),
                 text_color=oran_renk
-            ).pack(pady=(15, 5))
+            ).pack(pady=(10, 5))
 
-        # Butonlar
-        btn_frame = ctk.CTkFrame(popup, fg_color="transparent")
-        btn_frame.pack(pady=(20, 15))
+        # Detay butonlari
+        btn_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        btn_frame.pack(pady=(10, 5))
 
-        # İptal edilen HYP'leri göster butonu (varsa)
         if iptal_sayisi > 0:
             ctk.CTkButton(
                 btn_frame,
-                text="⚠️ İptal Edilenleri Gör",
-                command=lambda: [popup.destroy(), self.show_cancelled_hyps_popup(cancelled_list)],
-                width=150,
-                height=35,
-                font=ctk.CTkFont(size=13),
+                text="Iptal Edilenler",
+                command=lambda: self.show_cancelled_hyps_popup(cancelled_list),
+                width=110,
+                height=28,
+                font=ctk.CTkFont(size=11),
                 fg_color="#e67e22",
                 hover_color="#d35400"
-            ).pack(side="left", padx=5)
+            ).pack(side="left", padx=3)
 
-        # Atlanan HYP'leri göster butonu (varsa)
         if atlanan_detay_sayisi > 0:
             ctk.CTkButton(
                 btn_frame,
-                text="📋 Atlanan Sebepleri Gör",
-                command=lambda: [popup.destroy(), self.show_skipped_hyps_popup(skipped_list)],
-                width=170,
-                height=35,
-                font=ctk.CTkFont(size=13),
+                text="Atlananlar",
+                command=lambda: self.show_skipped_hyps_popup(skipped_list),
+                width=100,
+                height=28,
+                font=ctk.CTkFont(size=11),
                 fg_color="#9b59b6",
                 hover_color="#8e44ad"
-            ).pack(side="left", padx=5)
+            ).pack(side="left", padx=3)
 
-        # Başarısız HYP'leri göster butonu (varsa)
         if basarisiz_detay_sayisi > 0:
             ctk.CTkButton(
                 btn_frame,
-                text="❌ Başarısız Detayları",
-                command=lambda: [popup.destroy(), self.show_failed_hyps_popup(failed_list)],
-                width=160,
-                height=35,
-                font=ctk.CTkFont(size=13),
+                text="Basarisizlar",
+                command=lambda: self.show_failed_hyps_popup(failed_list),
+                width=100,
+                height=28,
+                font=ctk.CTkFont(size=11),
                 fg_color="#e74c3c",
                 hover_color="#c0392b"
-            ).pack(side="left", padx=5)
+            ).pack(side="left", padx=3)
 
-        # Tamam butonu
+    def _build_history_tab(self, parent, popup):
+        """Gecmis oturumlar sekmesini olustur"""
+        history = self.settings_manager.get_session_history()
+
+        if not history:
+            ctk.CTkLabel(
+                parent,
+                text="Henuz kayitli oturum gecmisi yok.",
+                font=ctk.CTkFont(size=14),
+                text_color="#95a5a6"
+            ).pack(pady=50)
+            return
+
+        # Ust bilgi
+        ctk.CTkLabel(
+            parent,
+            text=f"Son {len(history)} oturum kayitli",
+            font=ctk.CTkFont(size=12),
+            text_color="#bdc3c7"
+        ).pack(pady=(5, 10))
+
+        # Liste
+        list_frame = ctk.CTkScrollableFrame(parent, fg_color="#2c3e50", corner_radius=10, height=280)
+        list_frame.pack(fill="both", expand=True, padx=10, pady=5)
+
+        for idx, session in enumerate(history):
+            tarih = session.get('tarih', 'Bilinmiyor')
+            basarili = session.get('basarili', 0)
+            basarisiz = session.get('basarisiz', 0)
+            atlanan = session.get('atlanan', 0)
+
+            # Tarih formati: sadece gun ve saat
+            try:
+                from datetime import datetime
+                dt = datetime.strptime(tarih, "%Y-%m-%d %H:%M:%S")
+                tarih_kisa = dt.strftime("%d.%m %H:%M")
+            except:
+                tarih_kisa = tarih[:16] if len(tarih) > 16 else tarih
+
+            item_frame = ctk.CTkFrame(list_frame, fg_color="#34495e", corner_radius=8)
+            item_frame.pack(fill="x", padx=5, pady=3)
+
+            # Sol: Tarih ve ozet
+            left = ctk.CTkFrame(item_frame, fg_color="transparent")
+            left.pack(side="left", fill="x", expand=True, padx=10, pady=8)
+
+            ctk.CTkLabel(
+                left,
+                text=tarih_kisa,
+                font=ctk.CTkFont(size=12, weight="bold"),
+                text_color="#ecf0f1"
+            ).pack(anchor="w")
+
+            ozet = f"B:{basarili}  X:{basarisiz}  A:{atlanan}"
+            ctk.CTkLabel(
+                left,
+                text=ozet,
+                font=ctk.CTkFont(size=11),
+                text_color="#bdc3c7"
+            ).pack(anchor="w")
+
+            # Sag: Detay butonu
+            ctk.CTkButton(
+                item_frame,
+                text="Detay",
+                command=lambda s=session: self._show_history_detail(s),
+                width=60,
+                height=28,
+                font=ctk.CTkFont(size=11),
+                fg_color="#6c5ce7",
+                hover_color="#5b4cdb"
+            ).pack(side="right", padx=10, pady=8)
+
+        # Gecmisi temizle butonu
         ctk.CTkButton(
-            btn_frame,
-            text="Tamam",
-            command=popup.destroy,
+            parent,
+            text="Gecmisi Temizle",
+            command=lambda: self._clear_history_confirm(popup),
             width=120,
-            height=35,
-            font=ctk.CTkFont(size=13),
+            height=28,
+            font=ctk.CTkFont(size=11),
+            fg_color="#636e72",
+            hover_color="#535c5f"
+        ).pack(pady=(10, 5))
+
+    def _show_history_detail(self, session):
+        """Gecmis oturum detayini yeni popup'ta goster"""
+        stats = {
+            'basarili': session.get('basarili', 0),
+            'basarisiz': session.get('basarisiz', 0),
+            'atlanan': session.get('atlanan', 0),
+            'toplam_sure': session.get('toplam_sure', 0)
+        }
+        cancelled = session.get('iptal_edilenler', [])
+        skipped = session.get('atlananlar', [])
+        failed = session.get('basarisizlar', [])
+
+        # Yeni popup ac
+        detail_popup = ctk.CTkToplevel(self)
+        tarih_str = session.get('tarih', 'Bilinmiyor')[:16]
+        detail_popup.title(f"Oturum Detayi - {tarih_str}")
+        detail_popup.geometry("450x420")
+        detail_popup.resizable(False, False)
+
+        detail_popup.update_idletasks()
+        x = (detail_popup.winfo_screenwidth() // 2) - 225
+        y = (detail_popup.winfo_screenheight() // 2) - 210
+        detail_popup.geometry(f"450x420+{x}+{y}")
+
+        detail_popup.configure(fg_color="#1a1a2e")
+        detail_popup.transient(self)
+        detail_popup.grab_set()
+
+        # Baslik
+        ctk.CTkLabel(
+            detail_popup,
+            text=f"Tarih: {tarih_str}",
+            font=ctk.CTkFont(size=16, weight="bold"),
+            text_color="#6c5ce7"
+        ).pack(pady=(15, 10))
+
+        # Icerik
+        self._build_session_content(detail_popup, stats, cancelled, skipped, failed, detail_popup)
+
+        # Kapat butonu
+        ctk.CTkButton(
+            detail_popup,
+            text="Kapat",
+            command=detail_popup.destroy,
+            width=100,
+            height=32,
+            font=ctk.CTkFont(size=12),
             fg_color="#3498db",
             hover_color="#2980b9"
-        ).pack(side="left", padx=5)
+        ).pack(pady=(15, 15))
+
+    def _clear_history_confirm(self, parent_popup):
+        """Gecmis temizleme onay popup'i"""
+        confirm = ctk.CTkToplevel(self)
+        confirm.title("Onay")
+        confirm.geometry("320x150")
+        confirm.resizable(False, False)
+
+        confirm.update_idletasks()
+        x = (confirm.winfo_screenwidth() // 2) - 160
+        y = (confirm.winfo_screenheight() // 2) - 75
+        confirm.geometry(f"320x150+{x}+{y}")
+
+        confirm.configure(fg_color="#1a1a2e")
+        confirm.transient(self)
+        confirm.grab_set()
+
+        ctk.CTkLabel(
+            confirm,
+            text="Tum oturum gecmisini silmek\nistediginize emin misiniz?",
+            font=ctk.CTkFont(size=13),
+            text_color="#ecf0f1"
+        ).pack(pady=(20, 15))
+
+        btn_frame = ctk.CTkFrame(confirm, fg_color="transparent")
+        btn_frame.pack(pady=10)
+
+        def do_clear():
+            self.settings_manager.clear_session_history()
+            confirm.destroy()
+            parent_popup.destroy()
+            self.log_message("Oturum gecmisi temizlendi.")
+
+        ctk.CTkButton(
+            btn_frame,
+            text="Evet, Sil",
+            command=do_clear,
+            width=80,
+            height=30,
+            fg_color="#e74c3c",
+            hover_color="#c0392b"
+        ).pack(side="left", padx=10)
+
+        ctk.CTkButton(
+            btn_frame,
+            text="Iptal",
+            command=confirm.destroy,
+            width=80,
+            height=30,
+            fg_color="#636e72",
+            hover_color="#535c5f"
+        ).pack(side="left", padx=10)
 
     def show_cancelled_hyps_popup(self, cancelled_list):
         """

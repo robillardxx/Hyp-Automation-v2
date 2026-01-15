@@ -1927,6 +1927,14 @@ class HYPAutomation:
                 if self.current_patient_tc and self._is_sms_kapali_hasta(self.current_patient_tc):
                     self.log(f"   [SMS KAPALI] {display_name} daha once SMS kapali olarak isaretlendi - ATLANIYOR!", "WARNING")
                     self.session_stats["atlanan"] += 1
+                    # Atlanan bildirim listesine ekle
+                    self.skipped_hyp_notifications.append({
+                        'hasta': display_name,
+                        'tc': self.current_patient_tc,
+                        'hyp_tip': 'TÜMÜ',
+                        'sebep': 'SMS izni kapalı olarak işaretlenmiş',
+                        'tarih': time.strftime('%d.%m.%Y %H:%M')
+                    })
                     return True  # Atlandi ama hata degil
             except:
                 pass
@@ -1937,6 +1945,14 @@ class HYPAutomation:
             if not cards:
                 self.log("İşlenecek HYP kartı bulunamadı.", "WARNING")
                 self.session_stats["atlanan"] += 1
+                # Atlanan bildirim listesine ekle
+                self.skipped_hyp_notifications.append({
+                    'hasta': self.current_patient_name or 'Bilinmiyor',
+                    'tc': self.current_patient_tc,
+                    'hyp_tip': 'TÜMÜ',
+                    'sebep': 'İşlenecek HYP kartı bulunamadı',
+                    'tarih': time.strftime('%d.%m.%Y %H:%M')
+                })
                 return True
             
             # 5. Yapılabilir Kartları Filtrele + HEDEF KONTROLÜ + CACHE KONTROLÜ
@@ -1959,6 +1975,17 @@ class HYPAutomation:
             if not yapilabilir_kartlar:
                 self.log("Yapılabilir kart yok (tamamlanmış, cache'de veya hedef tutturulmuş).", "WARNING")
                 self.session_stats["atlanan"] += 1
+                # Atlanan bildirim listesine ekle
+                sebep = 'Yapılabilir kart yok'
+                if cache_atlanan > 0:
+                    sebep = f"Tüm HYP'ler daha önce tamamlanmış ({cache_atlanan} adet cache'de)"
+                self.skipped_hyp_notifications.append({
+                    'hasta': self.current_patient_name or 'Bilinmiyor',
+                    'tc': self.current_patient_tc,
+                    'hyp_tip': 'TÜMÜ',
+                    'sebep': sebep,
+                    'tarih': time.strftime('%d.%m.%Y %H:%M')
+                })
                 return True
 
             self.log(f"Yapılabilir kart sayısı: {len(yapilabilir_kartlar)} (hedef kontrolü yapıldı)")
@@ -6719,7 +6746,6 @@ class HYPAutomation:
                 islenen += 1
                 self.session_stats["basarili"] += 1
                 self.increment_completed(hyp_tip)
-                self.log(f"Sol panel kartı tamamlandı: {hyp_tip}", "SUCCESS")
 
                 # ============================================================
                 # CANLI İLERLEME GÜNCELLEMESİ - GUI'ye bildir (sidebar kartları için)

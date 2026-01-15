@@ -455,6 +455,47 @@ class SettingsManager:
         self.save_settings()
 
     # ============================================================
+    # SESSION GECMISI (Oturum ozeti kayitlari)
+    # ============================================================
+
+    def save_session_history(self, stats: dict, cancelled_list: list = None, skipped_list: list = None, failed_list: list = None):
+        """
+        Tamamlanan oturum verilerini gecmise kaydet.
+        En fazla 50 oturum saklanir (eski olanlar silinir).
+        """
+        if "session_history" not in self.settings:
+            self.settings["session_history"] = []
+        
+        session_data = {
+            "tarih": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "basarili": stats.get("basarili", 0),
+            "basarisiz": stats.get("basarisiz", 0),
+            "atlanan": stats.get("atlanan", 0),
+            "toplam_sure": stats.get("toplam_sure", 0),
+            "iptal_edilenler": cancelled_list or [],
+            "atlananlar": skipped_list or [],
+            "basarisizlar": failed_list or []
+        }
+        
+        # Basa ekle (en yeni en ustte)
+        self.settings["session_history"].insert(0, session_data)
+        
+        # En fazla 50 oturum sakla
+        if len(self.settings["session_history"]) > 50:
+            self.settings["session_history"] = self.settings["session_history"][:50]
+        
+        self.save_settings()
+
+    def get_session_history(self) -> list:
+        """Kayitli oturum gecmisini dondur."""
+        return self.settings.get("session_history", [])
+
+    def clear_session_history(self):
+        """Tum oturum gecmisini temizle."""
+        self.settings["session_history"] = []
+        self.save_settings()
+
+    # ============================================================
     # KVR HEDEF ASIMI AYARI (KALICI)
     # ============================================================
 
