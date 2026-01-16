@@ -1,5 +1,59 @@
 # HYP Otomasyon - Guncelleme Gunlugu
 
+## [v7.1.0] - 2026-01-16
+
+### Bel Cevresi Optimizasyonu (YENI OZELLIK)
+- **YENI:** VKI 30 altindaki hastalarda obezite tanisi konmasini engelleyen akilli bel cevresi sistemi
+- **Kadinlar:** Bel cevresi otomatik olarak max 89 cm girilir (90 sinirinin altinda)
+- **Erkekler:** Bel cevresi otomatik olarak max 99 cm girilir (100 sinirinin altinda)
+- **Akilli Hesaplama:** VKI'ye gore mantikli bel cevresi degeri hesaplanir
+- **Cinsiyet Algilama:** Hasta bilgilerinden cinsiyet otomatik okunur
+- **VKI Okuma:** Sayfadan VKI degeri okunur veya boy/kilodan hesaplanir
+- **Ayarlar Toggle:** Ayarlar > "Bel cevresi optimizasyonu" ile acilip kapatilabilir
+
+### Teknik Degisiklikler
+- `login_manager.py`:
+  - `get_waist_optimization()` ve `set_waist_optimization()` metotlari eklendi
+  - SettingsWindow'a yeni toggle eklendi
+  - `toggle_waist_optimization()` callback fonksiyonu eklendi
+- `hyp_automation.py`:
+  - `waist_optimization_enabled` instance degiskeni eklendi
+  - `_get_patient_gender()` - Hasta cinsiyetini okur
+  - `_get_vki_value()` - VKI degerini okur/hesaplar
+  - `_get_optimized_waist()` - Maksimum bel cevresi sinirini dondurur
+  - `_calculate_optimized_waist()` - VKI'ye gore mantikli bel cevresi hesaplar
+  - `_fill_anamnez_fields()` - Bel cevresi ozel islemi eklendi
+  - `_process_obezite()` - Ayar yukleme eklendi
+
+### Dokumantasyon
+- `dist/HYP_Doktor/README.md` - Hizli baslangic rehberi
+- `dist/HYP_Doktor/KULLANIM_KILAVUZU.md` - Detayli kullanim kilavuzu
+- `dist/HYP_Doktor/FAQ.md` - Sik sorulan sorular (yasal guvenlik dahil)
+- `dist/HYP_Hemsire/README.md` - Hemsire hizli baslangic
+- `dist/HYP_Hemsire/KULLANIM_KILAVUZU.md` - Hemsire kullanim kilavuzu
+- `dist/KURULUM_REHBERI.txt` - Flash disk kurulum rehberi
+- `build_release.bat` - EXE olusturma ve paketleme scripti
+
+---
+
+## [v7.0.2] - 2026-01-15
+
+### Windows Baslangic Duzeltmesi
+- **DUZELTILDI:** "Bilgisayar acildiginda otomatik basla" ayari artik calisiyor
+- **Onceki Sorun:** Registry'ye `pythonw gui_app.py` kaydediliyordu, Windows baslangicinda bulunamiyordu
+- **Yeni Davranis:** `HYP_Baslat.vbs` dosyasi kullaniliyor (konsol acmadan baslatir)
+- **Teknik:** `set_startup_enabled()` fonksiyonu guncellendi
+
+### Proje Temizligi
+- **SILINDI:** Gereksiz dosyalar temizlendi (~325 MB kazanildi)
+  - `dist/` klasoru (eski exe'ler)
+  - `hemsire_app/` klasoru (eski exe)
+  - Analiz raporlari (FAZ1-4, guven.md, vb.)
+  - `tmpclaude-*` gecici dosyalari
+  - `main.py`, `test_tray.ico`
+
+---
+
 ## [v7.0.1] - 2026-01-15
 
 ### Atlanan HYP Sebepleri Goruntuleme

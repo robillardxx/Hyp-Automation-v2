@@ -515,6 +515,27 @@ class SettingsManager:
         self.settings["auto_delete_excess_kvr"] = value
         self.save_settings()
 
+    # ============================================================
+    # BEL ÇEVRESİ OPTİMİZASYONU AYARI
+    # ============================================================
+
+    def get_waist_optimization(self) -> bool:
+        """
+        Bel çevresi optimizasyonu ayarını oku.
+        VKİ 30 altında ise obezite tanısı konmaması için bel çevresi sınırlandırılır.
+        Returns: True (optimizasyon açık), False (kapalı)
+        """
+        return self.settings.get("waist_optimization", False)
+
+    def set_waist_optimization(self, value: bool):
+        """
+        Bel çevresi optimizasyonu ayarını kaydet.
+        Args:
+            value: True (optimizasyon açık), False (kapalı)
+        """
+        self.settings["waist_optimization"] = value
+        self.save_settings()
+
     # Eski fonksiyonlar - geriye uyumluluk icin (artik kullanilmiyor)
     def get_kvr_overflow_decision(self):
         """DEPRECATED: Artik get_auto_delete_kvr() kullaniliyor"""
@@ -1913,6 +1934,43 @@ class SettingsWindow(ctk.CTkToplevel):
         if self.settings_manager.get_auto_delete_kvr():
             self.kvr_auto_delete_switch.select()
 
+        # Bel Çevresi Optimizasyon Toggle
+        waist_toggle_frame = ctk.CTkFrame(self.automation_section, fg_color="transparent")
+        waist_toggle_frame.pack(fill="x", padx=20, pady=10)
+
+        waist_label_frame = ctk.CTkFrame(waist_toggle_frame, fg_color="transparent")
+        waist_label_frame.pack(side="left", fill="x", expand=True)
+
+        ctk.CTkLabel(
+            waist_label_frame,
+            text="Bel çevresi optimizasyonu",
+            font=ctk.CTkFont(size=12),
+            anchor="w"
+        ).pack(anchor="w")
+
+        ctk.CTkLabel(
+            waist_label_frame,
+            text="VKİ 30 altında ise bel çevresi kadınlarda <90, erkeklerde <100 girilir.\nObezite tanısı konmasını engeller.",
+            font=ctk.CTkFont(size=10),
+            text_color="#95a5a6",
+            anchor="w",
+            justify="left"
+        ).pack(anchor="w")
+
+        self.waist_optimization_switch = ctk.CTkSwitch(
+            waist_toggle_frame,
+            text="",
+            width=50,
+            command=self.toggle_waist_optimization,
+            onvalue=True,
+            offvalue=False
+        )
+        self.waist_optimization_switch.pack(side="right", padx=10)
+
+        # Mevcut değeri yükle
+        if self.settings_manager.get_waist_optimization():
+            self.waist_optimization_switch.select()
+
         # DİĞER İŞLEMLER BÖLÜMÜ
         self.other_section = ctk.CTkFrame(self.main_frame, corner_radius=10)
         self.other_section.pack(fill="x", pady=10)
@@ -2085,6 +2143,11 @@ class SettingsWindow(ctk.CTkToplevel):
         """KVR otomatik silme ayarını değiştir"""
         value = self.kvr_auto_delete_switch.get()
         self.settings_manager.set_auto_delete_kvr(value)
+
+    def toggle_waist_optimization(self):
+        """Bel çevresi optimizasyonu toggle'ını değiştir"""
+        value = self.waist_optimization_switch.get()
+        self.settings_manager.set_waist_optimization(value)
 
     def toggle_pin_visibility(self):
         """PIN görünürlüğünü değiştir"""

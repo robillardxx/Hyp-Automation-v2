@@ -90,6 +90,9 @@ class HYPAutomation:
         # Aktif HYP tipleri (GUI'den ayarlanabilir, varsayılan hepsi aktif)
         self.enabled_hyp_types = None  # None = hepsi aktif, list = sadece listede olanlar
 
+        # Bel çevresi optimizasyonu (VKİ 30 altında obezite tanısı önleme)
+        self.waist_optimization_enabled = False  # Varsayılan kapalı, ayarlardan yüklenir
+
         # İşlem sayaçları
         self.session_stats = {
             "basarili": 0,
@@ -3071,6 +3074,17 @@ class HYPAutomation:
         OBE_IZLEM Akışı (7 adım): ANAMNEZ -> OYKU -> TETKIK -> ILAC -> EVRE -> YASAM -> OZET
         """
         self.log(">> Obezite protokolü başladı")
+
+        # Ayarlardan bel optimizasyonu durumunu al
+        try:
+            from login_manager import SettingsManager
+            settings = SettingsManager()
+            self.waist_optimization_enabled = settings.get_waist_optimization()
+            if self.waist_optimization_enabled:
+                self.log("   Bel çevresi optimizasyonu AÇIK", "DEBUG")
+        except:
+            self.waist_optimization_enabled = False
+
         # NOT: _start_process() artik _process_single_card'da cagiriliyor!
 
         is_finished = False
@@ -4307,20 +4321,163 @@ class HYPAutomation:
             self.log(f"      Kırılganlık Ölçeği hatası: {str(e)[:50]}", "WARNING")
             return True  # Devam et
 
+    # ============================================================
+    # BEL ÇEVRESİ OPTİMİZASYONU YARDIMCI METOTLARI
+    # ============================================================
+
+    def _get_patient_gender(self) -> str:
+        """
+        Sayfadan hasta cinsiyetini oku.
+        Returns: 'KADIN', 'ERKEK' veya 'BILINMIYOR'
+        """
+        try:
+            # Sol üst köşedeki hasta bilgi panelinden oku
+            page_text = self.driver.find_element(By.TAG_NAME, 'body').text.upper()
+
+            # Hasta bilgi panelindeki metni kontrol et (ilk 500 karakter)
+            header_text = page_text[:500]
+            if 'KADIN' in header_text:
+                return 'KADIN'
+            elif 'ERKEK' in header_text:
+                return 'ERKEK'
+
+            # Alternatif: CSS ile spesifik element ara
+            try:
+                patient_info = self.driver.find_element(By.CSS_SELECTOR, '.patient-info, .hasta-bilgi, .patient-header')
+                if 'KADIN' in patient_info.text.upper():
+                    return 'KADIN'
+                elif 'ERKEK' in patient_info.text.upper():
+                    return 'ERKEK'
+            except:
+                pass
+
+            return 'BILINMIYOR'
+        except:
+            return 'BILINMIYOR'
+
+    def _get_vki_value(self, boy: int = 0, kilo: int = 0) -> float:
+        """
+        Sayfadan VKİ (BKİ) değerini oku veya hesapla.
+        Returns: VKİ değeri veya -1 (bulunamazsa)
+        """
+        try:
+            import re
+
+            # YÖNTEM 1: Progress bar'daki sayıyı oku (21.6 gibi)
+            try:
+                bki_row = self.driver.find_element(By.XPATH,
+                    "//label[contains(text(), 'BKİ') or contains(text(), 'BKI') or contains(text(), 'VKİ')]/ancestor::hyp-physical-examination-row"
+                )
+                # Progress bar içindeki span'da değer var
+                value_spans = bki_row.find_elements(By.CSS_SELECTOR, 'span')
+                for span in value_spans:
+                    text = span.text.strip()
+                    # Sayısal değer mi kontrol et (15-60 arası mantıklı VKİ)
+                    try:
+                        val = float(text.replace(',', '.'))
+                        if 15 <= val <= 60:
+                            return val
+                    except:
+                        continue
+            except:
+                pass
+
+            # YÖNTEM 2: Sayfa metninden regex ile bul
+            page_text = self.get_page_text()
+            matches = re.findall(r'(\d{2}[.,]\d)\s*(?:Normal|Kilolu|Obez|Düşük)', page_text)
+            if matches:
+                return float(matches[0].replace(',', '.'))
+
+            # YÖNTEM 3: Boy ve kilodan manuel hesapla (fallback)
+            if boy > 0 and kilo > 0:
+                vki = kilo / ((boy / 100) ** 2)
+                return round(vki, 1)
+
+            return -1
+        except:
+            return -1
+
+    def _get_optimized_waist(self, gender: str) -> int:
+        """
+        VKİ 30 altında ise obezite tanısı konmayacak şekilde maksimum bel çevresi döndür.
+
+        Args:
+            gender: 'KADIN' veya 'ERKEK'
+
+        Returns:
+            Maksimum izin verilen bel çevresi (cm)
+        """
+        if gender == 'KADIN':
+            return 89  # 90'ın altında (90 hariç)
+        else:  # ERKEK veya BİLİNMİYOR
+            return 99  # 100'ün altında (100 hariç)
+
+    def _calculate_optimized_waist(self, gender: str, vki: float, boy: int, kilo: int) -> int:
+        """
+        VKİ'ye göre mantıklı bir bel çevresi hesapla.
+        Sınır değerlerin altında kalacak şekilde optimize edilir.
+
+        Args:
+            gender: 'KADIN' veya 'ERKEK'
+            vki: Vücut Kitle İndeksi
+            boy: Boy (cm)
+            kilo: Kilo (kg)
+
+        Returns:
+            Optimize edilmiş bel çevresi (cm)
+        """
+        # Maksimum izin verilen değerler
+        if gender == 'KADIN':
+            max_allowed = 89
+            base_waist = 70  # Normal kadın bel çevresi tabanı
+        else:
+            max_allowed = 99
+            base_waist = 80  # Normal erkek bel çevresi tabanı
+
+        # VKİ'ye göre gradyan hesapla
+        # VKİ 18-25 arası normal, 25-30 arası kilolu
+        if vki < 18.5:
+            # Düşük kilolu - düşük bel çevresi
+            waist = base_waist - 5
+        elif vki < 25:
+            # Normal - orta bel çevresi
+            waist = base_waist + int((vki - 18.5) * 1.5)
+        else:
+            # Kilolu (25-30) - sınıra yakın ama altında
+            waist = max_allowed - 5 + int((vki - 25) * 1)
+
+        # Sınırları aşma
+        waist = min(waist, max_allowed)
+        waist = max(waist, base_waist - 10)  # Çok düşük olmasın
+
+        return waist
+
     def _fill_anamnez_fields(self) -> bool:
         """Anamnez ve tetkik sayfalarindaki zorunlu olcum alanlarini doldur - HIZLI"""
         # OPTIMIZE: Implicit wait'i gecici kapat (element yoksa hemen gecsin)
         original_wait = self.driver.timeouts.implicit_wait
         self.driver.implicitly_wait(0)
-        
+
         import re
+
+        # Bel çevresi optimizasyonu için VKİ ve cinsiyet bilgisini al
+        vki = -1
+        gender = 'BILINMIYOR'
+        current_boy = 165
+        current_kilo = 75
+
+        if self.waist_optimization_enabled:
+            gender = self._get_patient_gender()
+            vki = self._get_vki_value()
+            self.log(f"   Bel optimizasyonu: Cinsiyet={gender}, VKİ={vki}", "DEBUG")
+
+        # Bel çevresi hariç alanlar (Bel ayrı işlenecek)
         fields = [
             ('Sistolik', 120),
             ('Diyastolik', 70),
             ('Nabız', 72),
             ('Boy', 165),
             ('Ağırlık', 75),
-            ('Bel', 90),
         ]
 
         filled_count = 0
@@ -4346,12 +4503,65 @@ class HYPAutomation:
                     # HIZLI: JavaScript ile deger gir
                     self.driver.execute_script("arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input', {bubbles: true}));", inp, str(default_val))
                     filled_count += 1
+
+                    # Boy ve kilo değerlerini kaydet (bel optimizasyonu için)
+                    if label_text == 'Boy':
+                        current_boy = default_val
+                    elif label_text == 'Ağırlık':
+                        current_kilo = default_val
             except:
                 pass
 
+        # BEL ÇEVRESİ ÖZEL İŞLEMİ
+        try:
+            bel_row = self.driver.find_element(
+                By.XPATH,
+                "//label[contains(text(), 'Bel')]/ancestor::hyp-physical-examination-row"
+            )
+            bel_inp = bel_row.find_element(By.CSS_SELECTOR, 'hyp-number-input input')
+            bel_current = bel_inp.get_attribute('value') or ''
+
+            if not bel_current or bel_current == 'undefined':
+                # Eski değeri al
+                bel_default = 90
+                try:
+                    prev_exam = bel_row.find_element(By.CSS_SELECTOR, '.previous-examination span')
+                    prev_text = prev_exam.text
+                    nums = re.findall(r'\d+', prev_text)
+                    if nums:
+                        bel_default = int(nums[0])
+                except:
+                    pass
+
+                # OPTIMIZASYON KONTROLÜ
+                if self.waist_optimization_enabled and vki > 0 and vki < 30:
+                    # VKİ 30 altında - bel çevresi sınırı kontrol et
+                    if gender == 'KADIN':
+                        max_allowed = 89
+                    elif gender == 'ERKEK':
+                        max_allowed = 99
+                    else:
+                        max_allowed = 89  # Bilinmiyorsa güvenli taraf (kadın sınırı)
+
+                    if bel_default >= (max_allowed + 1):
+                        # Eski değer sınırı aşıyor - optimize et
+                        bel_default = self._calculate_optimized_waist(gender, vki, current_boy, current_kilo)
+                        self.log(f"   Bel çevresi optimize edildi: {bel_default} cm (VKİ={vki}, {gender})", "SUCCESS")
+
+                # Değeri gir
+                self.driver.execute_script(
+                    "arguments[0].value = arguments[1]; "
+                    "arguments[0].dispatchEvent(new Event('input', {bubbles: true}));",
+                    bel_inp, str(bel_default)
+                )
+                filled_count += 1
+
+        except Exception as e:
+            self.log(f"   Bel çevresi alanı bulunamadı: {str(e)[:30]}", "DEBUG")
+
         # Implicit wait'i geri yukle
         self.driver.implicitly_wait(original_wait)
-        
+
         if filled_count > 0:
             self.log(f"   {filled_count} alan dolduruldu", "SUCCESS")
         return True
