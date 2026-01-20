@@ -12,6 +12,7 @@ Guvenlik Guncelleme (v6.9.9):
 import customtkinter as ctk
 import json
 import os
+import sys
 import base64
 import hashlib
 import secrets
@@ -178,8 +179,13 @@ class SecurePINStorage:
 # ============================================================
 # DOSYA YOLLARI
 # ============================================================
-# Uygulama dizini
-APP_DIR = os.path.dirname(os.path.abspath(__file__))
+# Uygulama dizini - PyInstaller uyumlu
+if getattr(sys, 'frozen', False):
+    # PyInstaller exe olarak çalışıyor - exe'nin bulunduğu klasör
+    APP_DIR = os.path.dirname(sys.executable)
+else:
+    # Normal Python script olarak çalışıyor
+    APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # İlaç ve gebe listesi dosyaları (glob pattern ile arama yapılacak)
 ILAC_LISTESI_FILE = None  # Dinamik bulunacak
@@ -1498,16 +1504,21 @@ class SettingsWindow(ctk.CTkToplevel):
 
         self.title("HYP Otomasyon - Ayarlar")
 
-        # Büyük pencere - tüm içerik görünsün
-        width = 800
-        height = 950
+        # Ekran boyutuna göre dinamik pencere boyutu
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+
+        # Ekrana sığacak boyut (görev çubuğu için 80px pay)
+        width = min(800, screen_width - 40)
+        height = min(850, screen_height - 80)
 
         self.geometry(f"{width}x{height}")
-        self.minsize(750, 850)
+        self.minsize(650, 550)  # Daha makul minimum
 
         self.update_idletasks()
-        x = (self.winfo_screenwidth() // 2) - (width // 2)
-        y = (self.winfo_screenheight() // 2) - (height // 2)
+        # Ekran ortasına konumla
+        x = max(0, (screen_width - width) // 2)
+        y = max(0, (screen_height - height) // 2 - 20)
         self.geometry(f"{width}x{height}+{x}+{y}")
 
         # Koyu tema uygula

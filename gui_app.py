@@ -73,10 +73,19 @@ def set_startup_enabled(enabled):
             # Exe veya script yolunu bul
             if getattr(sys, 'frozen', False):
                 # PyInstaller ile derlenmişse
-                app_path = sys.executable
+                app_path = f'"{sys.executable}"'
             else:
-                # Python script olarak çalışıyorsa
-                app_path = f'pythonw "{os.path.abspath(__file__)}"'
+                # Python script olarak çalışıyorsa - HYP_Baslat.vbs kullan
+                script_dir = os.path.dirname(os.path.abspath(__file__))
+                vbs_path = os.path.join(script_dir, "HYP_Baslat.vbs")
+
+                if os.path.exists(vbs_path):
+                    # VBS başlatıcı varsa onu kullan (konsol açmaz)
+                    app_path = f'wscript.exe "{vbs_path}"'
+                else:
+                    # VBS yoksa pythonw ile tam yol
+                    python_path = sys.executable.replace("python.exe", "pythonw.exe")
+                    app_path = f'"{python_path}" "{os.path.abspath(__file__)}"'
 
             winreg.SetValueEx(key, "HYP_Otomasyon", 0, winreg.REG_SZ, app_path)
             print(f"[STARTUP] Added to startup: {app_path}")
@@ -465,7 +474,24 @@ class HYPApp(ctk.CTk):
         ctk.set_default_color_theme("blue")
 
         self.title(f"HYP Otomasyon V{self.VERSION}")
-        self.geometry(GUI_CONFIG["window_size"])
+
+        # Ekran boyutuna göre dinamik pencere boyutu
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+
+        # İstenen boyut
+        desired_width = 1200
+        desired_height = 800
+
+        # Görev çubuğu için pay bırak (Windows ~40px, macOS ~25px)
+        taskbar_height = 60
+
+        # Ekrana sığacak şekilde ayarla
+        actual_width = min(desired_width, screen_width - 20)
+        actual_height = min(desired_height, screen_height - taskbar_height)
+
+        self.geometry(f"{actual_width}x{actual_height}")
+        self.minsize(900, 600)  # Minimum boyut
 
         # Uygulama ikonu
         try:
