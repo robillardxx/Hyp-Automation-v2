@@ -189,8 +189,12 @@ class HYPAutomation:
         self.log("=" * 50)
         self.log("DOSYA KONTROLU")
         self.log("=" * 50)
-        
-        base_dir = os.path.dirname(__file__)
+
+        # PyInstaller uyumlu base_dir
+        if getattr(sys, 'frozen', False):
+            base_dir = os.path.dirname(sys.executable)
+        else:
+            base_dir = os.path.dirname(__file__)
         
         # 1. ILAC LISTESI KONTROLU
         # Turkce ve encoding varyantlari: İlaç, Ilac, ilac
