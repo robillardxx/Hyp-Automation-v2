@@ -7,11 +7,18 @@ Debug modu, performans takibi, tooltip ve geçmiş aylar sekmesi
 # Windows görev çubuğu ikonu için - TÜM importlardan önce olmalı!
 import ctypes
 import os
+import sys
 try:
     myappid = 'hyp.otomasyon.gui.v6'
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 except:
     pass
+
+# PyInstaller uyumlu APP_DIR - kullanıcı verileri için (json, log dosyaları)
+if getattr(sys, 'frozen', False):
+    APP_DIR = os.path.dirname(sys.executable)
+else:
+    APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
 import customtkinter as ctk
 from tkinter import scrolledtext
@@ -2456,7 +2463,7 @@ class HYPApp(ctk.CTk):
 
         # Dosya adı oluştur
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        log_dir = os.path.join(os.path.dirname(__file__), 'logs')
+        log_dir = os.path.join(APP_DIR, 'logs')
         os.makedirs(log_dir, exist_ok=True)
 
         filename = os.path.join(log_dir, f"hyp_log_{timestamp}.txt")
@@ -4357,7 +4364,7 @@ class HYPApp(ctk.CTk):
             widget.destroy()
 
         # Dosyayı oku
-        sms_file = os.path.join(os.path.dirname(__file__), 'sms_kapali_hastalar.json')
+        sms_file = os.path.join(APP_DIR, 'sms_kapali_hastalar.json')
         data = []
 
         if os.path.exists(sms_file):
@@ -4435,7 +4442,7 @@ class HYPApp(ctk.CTk):
         import json
         import os
 
-        sms_file = os.path.join(os.path.dirname(__file__), 'sms_kapali_hastalar.json')
+        sms_file = os.path.join(APP_DIR, 'sms_kapali_hastalar.json')
 
         if not os.path.exists(sms_file):
             return
@@ -4459,7 +4466,7 @@ class HYPApp(ctk.CTk):
         """Tüm SMS kapalı hastaları temizle"""
         import os
 
-        sms_file = os.path.join(os.path.dirname(__file__), 'sms_kapali_hastalar.json')
+        sms_file = os.path.join(APP_DIR, 'sms_kapali_hastalar.json')
 
         if os.path.exists(sms_file):
             # Onay iste
@@ -4562,7 +4569,7 @@ class HYPApp(ctk.CTk):
             widget.destroy()
 
         # Dosyayi oku
-        eksik_file = os.path.join(os.path.dirname(__file__), 'eksik_tetkik_hastalar.json')
+        eksik_file = os.path.join(APP_DIR, 'eksik_tetkik_hastalar.json')
         data = []
 
         if os.path.exists(eksik_file):
@@ -4644,7 +4651,7 @@ class HYPApp(ctk.CTk):
         import json
         import os
 
-        eksik_file = os.path.join(os.path.dirname(__file__), 'eksik_tetkik_hastalar.json')
+        eksik_file = os.path.join(APP_DIR, 'eksik_tetkik_hastalar.json')
         data = []
 
         if os.path.exists(eksik_file):
@@ -4687,7 +4694,7 @@ class HYPApp(ctk.CTk):
         import json
         import os
 
-        eksik_file = os.path.join(os.path.dirname(__file__), 'eksik_tetkik_hastalar.json')
+        eksik_file = os.path.join(APP_DIR, 'eksik_tetkik_hastalar.json')
         data = []
 
         if os.path.exists(eksik_file):
@@ -4723,7 +4730,7 @@ class HYPApp(ctk.CTk):
         """Tum eksik tetkik kayitlarini temizle"""
         import os
 
-        eksik_file = os.path.join(os.path.dirname(__file__), 'eksik_tetkik_hastalar.json')
+        eksik_file = os.path.join(APP_DIR, 'eksik_tetkik_hastalar.json')
 
         if os.path.exists(eksik_file):
             confirm = ctk.CTkInputDialog(
@@ -4748,7 +4755,7 @@ class HYPApp(ctk.CTk):
         if not cancelled_list:
             return
 
-        eksik_file = os.path.join(os.path.dirname(__file__), 'eksik_tetkik_hastalar.json')
+        eksik_file = os.path.join(APP_DIR, 'eksik_tetkik_hastalar.json')
         data = []
 
         # Mevcut veriyi oku
