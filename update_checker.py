@@ -15,7 +15,7 @@ import urllib.error
 from typing import Optional, Callable, Dict, Any
 
 # Mevcut versiyon
-CURRENT_VERSION = "7.0.1"
+CURRENT_VERSION = "7.0.2"
 
 # GitHub ayarları
 GITHUB_REPO = "robillardxx/Hyp-Automation-v2"

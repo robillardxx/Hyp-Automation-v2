@@ -1,13 +1,13 @@
 {
-    "version": "7.0.1",
+    "version": "7.0.2",
     "release_date": "2025-01-20",
-    "download_url": "https://github.com/robillardxx/Hyp-Automation-v2/releases/download/v7.0.1/HYP_Doktor.zip",
+    "download_url": "https://github.com/robillardxx/Hyp-Automation-v2/releases/download/v7.0.2/HYP_Doktor.zip",
     "changelog": [
+        "Eksik tetkik ve SMS kapalı sekmeleri artık doğru çalışıyor",
         "BAŞLAT butonunda ilaç listesi eksik hatası düzeltildi",
         "Küçük ekran desteği (1366x768 ve altı)",
-        "PyInstaller exe için ilaç/gebe listesi düzeltmesi",
         "Otomatik güncelleme sistemi eklendi"
     ],
-    "release_notes": "v7.0.1 - BAŞLAT butonundaki ilaç listesi hatası düzeltildi.",
+    "release_notes": "v7.0.2 - Eksik tetkik ve SMS kapalı sekmeleri düzeltildi.",
     "min_version": "6.0.0"
 }
