@@ -1,13 +1,13 @@
 {
-    "version": "7.0.2",
+    "version": "7.0.3",
     "release_date": "2025-01-20",
-    "download_url": "https://github.com/robillardxx/Hyp-Automation-v2/releases/download/v7.0.2/HYP_Doktor.zip",
+    "download_url": "https://github.com/robillardxx/Hyp-Automation-v2/releases/download/v7.0.3/HYP_Doktor.zip",
     "changelog": [
-        "Eksik tetkik ve SMS kapalı sekmeleri artık doğru çalışıyor",
+        "Otomatik güncelleme indirme hatası düzeltildi (SSL/kurumsal ağ)",
+        "Eksik tetkik ve SMS kapalı sekmeleri düzeltildi",
         "BAŞLAT butonunda ilaç listesi eksik hatası düzeltildi",
-        "Küçük ekran desteği (1366x768 ve altı)",
-        "Otomatik güncelleme sistemi eklendi"
+        "Küçük ekran desteği (1366x768 ve altı)"
     ],
-    "release_notes": "v7.0.2 - Eksik tetkik ve SMS kapalı sekmeleri düzeltildi.",
+    "release_notes": "v7.0.3 - Kurumsal ağlarda otomatik güncelleme artık çalışıyor.",
     "min_version": "6.0.0"
 }

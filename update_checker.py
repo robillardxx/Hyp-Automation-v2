@@ -15,7 +15,7 @@ import urllib.error
 from typing import Optional, Callable, Dict, Any
 
 # Mevcut versiyon
-CURRENT_VERSION = "7.0.2"
+CURRENT_VERSION = "7.0.3"
 
 # GitHub ayarları
 GITHUB_REPO = "robillardxx/Hyp-Automation-v2"
@@ -182,19 +182,30 @@ def download_update(url: str, progress_callback: Optional[Callable[[int, int], N
     Returns:
         İndirilen dosyanın yolu veya hata durumunda None
     """
+    import ssl
+
     try:
         temp_dir = tempfile.gettempdir()
         zip_path = os.path.join(temp_dir, "hyp_update.zip")
 
+        # SSL context - bazı kurumsal ağlarda sertifika sorunu olabilir
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+
         request = urllib.request.Request(
             url,
-            headers={"User-Agent": "HYP-Otomasyon-Updater/2.0"}
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Accept": "application/octet-stream,*/*"
+            }
         )
 
-        with urllib.request.urlopen(request) as response:
+        # Timeout artırıldı (büyük dosyalar için 10 dakika)
+        with urllib.request.urlopen(request, timeout=600, context=ssl_context) as response:
             total_size = int(response.headers.get('Content-Length', 0))
             downloaded = 0
-            chunk_size = 8192
+            chunk_size = 65536  # 64KB chunks (daha hızlı)
 
             with open(zip_path, 'wb') as f:
                 while True:
@@ -209,6 +220,12 @@ def download_update(url: str, progress_callback: Optional[Callable[[int, int], N
 
         return zip_path
 
+    except urllib.error.URLError as e:
+        print(f"İndirme URL hatası: {e}")
+        return None
+    except urllib.error.HTTPError as e:
+        print(f"İndirme HTTP hatası: {e.code} - {e.reason}")
+        return None
     except Exception as e:
         print(f"İndirme hatası: {e}")
         return None
