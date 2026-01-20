@@ -29,7 +29,10 @@ from login_manager import (
     ILAC_LISTESI_FILE, GEBE_LISTESI_FILE,
     check_ilac_listesi, check_gebe_listesi
 )
-from update_checker import check_for_updates_async, get_current_version, CURRENT_VERSION
+from update_checker import (
+    check_for_updates_async, get_current_version, CURRENT_VERSION,
+    download_update_async, apply_update
+)
 import threading
 
 # Hemsire Entegrasyonu - Paylasimli Klasor
@@ -5416,18 +5419,18 @@ class HYPApp(ctk.CTk):
         check_for_updates_async(on_startup_update_result)
 
     def show_update_available_popup(self, update_info: dict):
-        """Yeni güncelleme mevcut popup'ı"""
+        """Yeni güncelleme mevcut popup'ı - Otomatik indirme ve kurulum"""
         popup = ctk.CTkToplevel(self)
         popup.title("Güncelleme Mevcut")
-        popup.geometry("450x350")
+        popup.geometry("500x400")
         popup.resizable(False, False)
         popup.transient(self)
         popup.grab_set()
 
         # Popup'ı ortala
         popup.update_idletasks()
-        x = self.winfo_x() + (self.winfo_width() - 450) // 2
-        y = self.winfo_y() + (self.winfo_height() - 350) // 2
+        x = self.winfo_x() + (self.winfo_width() - 500) // 2
+        y = self.winfo_y() + (self.winfo_height() - 400) // 2
         popup.geometry(f"+{x}+{y}")
 
         # Ana frame
@@ -5472,39 +5475,113 @@ class HYPApp(ctk.CTk):
                 text_color="#bdc3c7"
             ).pack(fill="x", padx=10)
 
+        # İlerleme çubuğu (başlangıçta gizli)
+        progress_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        progress_frame.pack(fill="x", pady=(15, 5))
+
+        progress_bar = ctk.CTkProgressBar(progress_frame, width=400)
+        progress_bar.pack(fill="x")
+        progress_bar.set(0)
+        progress_frame.pack_forget()  # Başlangıçta gizle
+
+        status_label = ctk.CTkLabel(
+            main_frame,
+            text="",
+            font=ctk.CTkFont(size=12),
+            text_color="#7f8c8d"
+        )
+        status_label.pack(pady=5)
+
         # Butonlar
         btn_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        btn_frame.pack(fill="x", pady=(20, 0))
+        btn_frame.pack(fill="x", pady=(15, 0))
 
         download_url = update_info.get("download_url", "")
 
-        def open_download():
-            import webbrowser
-            if download_url:
-                webbrowser.open(download_url)
-            popup.destroy()
+        def start_auto_update():
+            """Otomatik güncelleme başlat"""
+            if not download_url:
+                status_label.configure(text="❌ İndirme linki bulunamadı", text_color="#e74c3c")
+                return
 
-        ctk.CTkButton(
+            # Butonları devre dışı bırak
+            update_btn.configure(state="disabled", text="⏳ İndiriliyor...")
+            later_btn.configure(state="disabled")
+            progress_frame.pack(fill="x", pady=(15, 5))
+            status_label.configure(text="İndirme başlatılıyor...", text_color="#3498db")
+
+            def on_progress(downloaded, total):
+                """İndirme ilerlemesi"""
+                def update_progress():
+                    if total > 0:
+                        percent = downloaded / total
+                        progress_bar.set(percent)
+                        mb_downloaded = downloaded / (1024 * 1024)
+                        mb_total = total / (1024 * 1024)
+                        status_label.configure(
+                            text=f"📥 İndiriliyor: {mb_downloaded:.1f} / {mb_total:.1f} MB ({percent*100:.0f}%)"
+                        )
+                popup.after(0, update_progress)
+
+            def on_download_complete(zip_path):
+                """İndirme tamamlandığında"""
+                def apply():
+                    if zip_path:
+                        status_label.configure(
+                            text="✅ İndirme tamamlandı! Güncelleme uygulanıyor...",
+                            text_color="#27ae60"
+                        )
+                        progress_bar.set(1.0)
+                        popup.update()
+
+                        # Güncellemeyi uygula
+                        if apply_update(zip_path):
+                            status_label.configure(text="🔄 Uygulama yeniden başlatılıyor...")
+                            popup.after(1000, lambda: self.quit())
+                        else:
+                            status_label.configure(
+                                text="⚠️ Otomatik güncelleme başarısız. Manuel indirme açılıyor...",
+                                text_color="#f39c12"
+                            )
+                            import webbrowser
+                            webbrowser.open(download_url)
+                            popup.after(2000, popup.destroy)
+                    else:
+                        status_label.configure(
+                            text="❌ İndirme başarısız!",
+                            text_color="#e74c3c"
+                        )
+                        update_btn.configure(state="normal", text="🔄 Tekrar Dene")
+                        later_btn.configure(state="normal")
+
+                popup.after(0, apply)
+
+            # Arka planda indir
+            download_update_async(download_url, on_progress, on_download_complete)
+
+        update_btn = ctk.CTkButton(
             btn_frame,
-            text="📥 İndir",
-            command=open_download,
-            width=120,
-            height=38,
-            font=ctk.CTkFont(size=13, weight="bold"),
+            text="📥 Güncelle",
+            command=start_auto_update,
+            width=140,
+            height=40,
+            font=ctk.CTkFont(size=14, weight="bold"),
             fg_color="#27ae60",
             hover_color="#2ecc71"
-        ).pack(side="left", padx=(0, 10))
+        )
+        update_btn.pack(side="left", padx=(0, 10))
 
-        ctk.CTkButton(
+        later_btn = ctk.CTkButton(
             btn_frame,
             text="Sonra",
             command=popup.destroy,
             width=100,
-            height=38,
+            height=40,
             font=ctk.CTkFont(size=13),
             fg_color="#7f8c8d",
             hover_color="#95a5a6"
-        ).pack(side="left")
+        )
+        later_btn.pack(side="left")
 
     # ============================================================
     # MINIMIZE/RESTORE DÜZELTMESİ (Windows API ile)

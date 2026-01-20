@@ -1,0 +1,13 @@
+{
+    "version": "7.0.0",
+    "release_date": "2025-01-20",
+    "download_url": "https://github.com/robillardxx/Hyp-Automation-v2/releases/download/v7.0.0/HYP_Doktor.zip",
+    "changelog": [
+        "Küçük ekran desteği (1366x768 ve altı)",
+        "PyInstaller exe için ilaç/gebe listesi düzeltmesi",
+        "Otomatik güncelleme sistemi eklendi",
+        "Ayarlar penceresi boyut optimizasyonu"
+    ],
+    "release_notes": "Bu sürümde küçük ekranlı bilgisayarlar için uyumluluk düzeltmeleri ve otomatik güncelleme özelliği eklendi.",
+    "min_version": "6.0.0"
+}
